@@ -37,3 +37,13 @@ for _, recipe in pairs(data.raw.recipe) do
     recipe.category = nil
   end
 end
+
+-- Spike for #12: 2.1.7 renamed product probability to independent_probability.
+for _, recipe in pairs(data.raw.recipe) do
+  for _, result in pairs(recipe.results or {}) do
+    if result.probability then
+      result.independent_probability = result.probability
+      result.probability = nil
+    end
+  end
+end
