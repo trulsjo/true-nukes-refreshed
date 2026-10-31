@@ -17,9 +17,11 @@ likely each item is to stop the load, because it feeds the spike.
   <https://lua-api.factorio.com/2.0.77/> and <https://lua-api.factorio.com/1.1.110/>, and the
   vanilla Lua and changelog at tag `2.0.77` of
   [wube/factorio-data](https://github.com/wube/factorio-data/tree/2.0.77).
-- **Scope:** the three mods, base game. The optional integrations (`compatibility/` in both
-  `True-Nukes_Continued` and `Warheads_Continued`, and the `?` dependencies in each `info.json`)
-  are out of scope. Some of them use the same changed fields, for example `fuel_category` in
+- **Scope:** the three mods, base game. The optional integrations (in
+  `True-Nukes_Continued_0.3.36/compatibility/`,
+  `True-Nukes_Continued_0.3.36/prototypes/nukes/compatibility/` and
+  `Warheads_Continued_0.0.21/prototypes/compatibility/`, and the `?` dependencies in each
+  `info.json`) are out of scope. Some of them use the same changed fields, for example `fuel_category` in
   `True-Nukes_Continued_0.3.36/prototypes/nukes/compatibility/apm-nuclear.lua`.
 
 ## How it was checked
@@ -45,8 +47,9 @@ with no script error.
 
 A side finding on the method: the first run was from a directory about 250 characters deep, and it
 failed with `module data-nukes-warheads-weapon-appearance not found`, even though the file exists.
-That is the Windows path limit, not 2.1. The same copies run from a short path got past it. A
-future load harness for this repository needs a short working path.
+The same copies run from a short path got past it. That the cause is the Windows path limit, not
+2.1, is *inference* from that. If a load harness is ever wired into this repository, it would
+need a short working path.
 
 ## Ranked changes
 
@@ -164,12 +167,14 @@ After rank 4, `--dump-data`, `--create` and the 2400-tick run all pass.
   `on_script_trigger_effect` (the detonation path through `atomic_weapon_hit`,
   `thermobaric_weapon_hit` and `createBlastSoundsAndFlash` in
   `MushroomCloudInBuilt/control.lua`) all ran on 2.1.24 without error.
-- **Read:** the 2.0.77 → 2.1.24 runtime diff removes `LuaEntity::fluidbox`, `neighbours`,
-  `mining_progress` and `pump_rail_target`. It takes write access away from `LuaEntity::active`
-  and `minable`. It removes `LuaGameScript::create_profiler`, `LuaPlayer::pipette_entity`, the
+- **Read:** the 2.0.77 → 2.1.24 runtime diff removes `LuaEntity::fluidbox`, `neighbours` and
+  `pump_rail_target`, and moves `LuaEntity::mining_progress` to `LuaControl::mining_progress`,
+  where it is read/write. It takes write access away from `LuaEntity::active` and `minable`. It
+  removes `LuaGameScript::create_profiler`, `LuaPlayer::pipette_entity`, the
   `defines.inventory.assembling_machine_*`, `furnace_*` and `rocket_silo_*` values,
-  `LuaRecipe(Prototype)::category` and `LuaItemPrototype::fuel_category`, and replaces `LuaGroup`
-  (changelog.txt, Version 2.1.7, section Scripting; Version 2.1.20, section Scripting). The
+  `LuaRecipe(Prototype)::category` and `LuaItemPrototype::fuel_category` (changelog.txt, Version
+  2.1.7, section Scripting; Version 2.1.20, section Scripting). It replaces `LuaGroup` with
+  `LuaItemGroup` and `LuaItemSubGroup` (changelog.txt, Version 2.1.15, section Scripting). The
   runtime code here (`control.lua`, `scripts/`, `MushroomCloudInBuilt/control.lua`,
   `migrations/`) uses none of them. Every method it calls (`create_entity`,
   `find_entities_filtered`, `find_tiles_filtered`, `set_tiles`, `set_hidden_tile`,
@@ -221,7 +226,8 @@ These load and run, but differ from 2.0.
   all science packs to be plain items."). The mod's own `test-pack-atomic-*` prototypes stay
   `type = "tool"` (`True-Nukes_Continued_0.3.36/prototypes/nukes/data-nukes-technology.lua`), and
   `data-nukes-buildings.lua` and `data-nukes-technology.lua` look them up in `data.raw.tool`, which
-  still works (`ToolPrototype` exists in 2.1.24, and the dump has all six packs under `tool`).
+  still works (`ToolPrototype` exists in 2.1.24, and the dump has the mod's six
+  `test-pack-atomic-*` packs under `tool`).
   Nothing in the base-game paths reads a vanilla pack from `data.raw.tool`. The compatibility files
   were not checked for that.
 - **Tile collision masks changed type, and the mod's tiles still load.**
@@ -230,10 +236,14 @@ These load and run, but differ from 2.0.
   `True-Nukes_Continued_0.3.36/prototypes/nukes/data-nuke-terrain.lua` (`nuclear_shallow`,
   `nuclear_crater`, `nuclear_deep`, `nuclear_high` and the water-in-crater tiles) set only
   `layers`. *Measured*: they load.
-- **Rockets inherit the shooter's speed.** Vanilla `rocket`, `atomic-bomb` and `cannon-shell`
+- **Projectiles inherit the shooter's speed.** Vanilla `rocket`, `atomic-bomb` and `cannon-shell`
   deliveries gained `inherit_speed = true` (changelog.txt, Version 2.1.7, section Modding: "Added
-  ProjectileTriggerDelivery::inherit_speed"). The rocket weapontypes copy the vanilla delivery, so
-  the generated rockets inherit it as well. *Inference*, harmless.
+  ProjectileTriggerDelivery::inherit_speed"). So did the projectile delivery nested in
+  `piercing-shotgun-shell`'s area action (2.1.24 `item.lua`, the `piercing-shotgun-shell`
+  prototype). The rocket and cannon-shell weapontypes deep-copy their vanilla delivery, so the
+  generated rockets and shells inherit it as well. The shotgun weapontypes deep-copy
+  `piercing-shotgun-shell` too, but whether generated shotgun ammo keeps the nested delivery
+  depends on how rank 1 is fixed. *Inference*, harmless.
 
 ## Code still written for 1.1
 
@@ -245,8 +255,9 @@ above. Most of them are dormant or silent.
   …)`, read and write `global`. In 2.0 the persisted table is `storage` (factorio-data `2.0.77`
   changelog.txt, Version 2.0.7, section Scripting: "Renamed `global` into `storage`";
   <https://lua-api.factorio.com/2.0.77/auxiliary/storage.html>: "Before 2.0, the storage table was
-  called global"). `getGlobal` returns nil. `setGlobal` sets a plain Lua global that is not saved
-  and does not reach `storage`. It is silent, and only an outside caller reaches it.
+  called global"). *Inference*, from the code and the docs, not run: `getGlobal` returns nil, and
+  `setGlobal` sets a plain Lua global that is not saved and does not reach `storage`. It is
+  silent, and only an outside caller reaches it.
 - **The menu simulations, which are switched off.** The `require("menu-simulations.…")` lines in
   `True-Nukes_Continued_0.3.36/data.lua` are commented out, so none of this runs. If they were
   switched back on:
@@ -258,7 +269,7 @@ above. Most of them are dormant or silent.
     `2.0.77` changelog.txt, Version 2.0.7, section Scripting: "Added LuaRenderObject. All
     LuaRendering methods for manipulating object selected by id were moved to LuaRenderObject";
     <https://lua-api.factorio.com/2.0.77/classes/LuaRenderObject.html>). This would be a runtime
-    error. `MushroomCloudInBuilt/control.lua` already has the 2.0 form.
+    error (*inference*; not run). `MushroomCloudInBuilt/control.lua` already has the 2.0 form.
   - The `init` strings in `nuke-1x20t.lua`, `nuke-2x2t.lua` and `nuke-1x1kt.lua` set
     `game.camera_position` and `game.camera_zoom`, which 2.0 has as
     `game.simulation.camera_position` and `camera_zoom`
@@ -272,27 +283,29 @@ above. Most of them are dormant or silent.
   cuts blast damage by ten for `t=="curved-rail"` and `"straight-rail"`. 2.0 renamed the 1.1 types
   to `legacy-curved-rail` and `legacy-straight-rail` and added `curved-rail-a`, `curved-rail-b`,
   `half-diagonal-rail` and the elevated rails (2.0.77 changelog.txt, Version 2.0.7, section
-  Modding). `straight-rail` still matches. 2.0 curved, half-diagonal and elevated rails take full
-  damage. Silent.
+  Modding). `straight-rail` still matches. *Inference*, from the code, not run: 2.0 curved,
+  half-diagonal and elevated rails take full damage. Silent.
 - **Collision mask as a dictionary.** In the same `damage_entity`, the car and spider-vehicle branch
   halves damage when `next(entity.prototype.collision_mask)==nil`, meaning no layers, the 1.1
   test for a flying vehicle. In 1.1 `CollisionMask` is a dictionary of layers
   (<https://lua-api.factorio.com/1.1.110/concepts.html#CollisionMask>). In 2.0 it is a table with a
-  `layers` field and flags (<https://lua-api.factorio.com/2.0.77/concepts/CollisionMask.html>), so
-  `next` is never nil, and the halving never happens. Silent.
+  `layers` field and flags (<https://lua-api.factorio.com/2.0.77/concepts/CollisionMask.html>).
+  *Inference*, from the docs, not run: `next` is never nil, so the halving never happens. Silent.
 - **`get_contents` as a dictionary.** `checkInvForNukes` in
   `True-Nukes_Continued_0.3.36/scripts/achievement-system.lua` loops `for name,count in
   pairs(get_contents())` and matches `name` against `TN-warhead.*` and `.*-atomic-.*`. 2.0 returns
   an array of `{name, count, quality}` (2.0.77 changelog.txt, Version 2.0.7, section Scripting:
   "LuaInventory::get_contents() will now return an array of {name = name, count = count, quality =
-  quality}"; <https://lua-api.factorio.com/2.0.77/classes/LuaInventory.html#get_contents>), so
-  `name` is an index, and the `lose-nuke` achievement never unlocks. Silent.
+  quality}"; <https://lua-api.factorio.com/2.0.77/classes/LuaInventory.html#get_contents>).
+  *Inference*, from the code and the docs, not run: `name` is an index, so the `lose-nuke`
+  achievement never unlocks. Silent.
 - **`AmmoType::category`.** `sanitseWeapontype` in
   `Warheads_Continued_0.0.21/prototypes/weapontype-sanitise.lua` falls back to
   `item.ammo_type.category`. That field is in 1.1.110's `AmmoType` and not in 2.0.77's, where
   `AmmoItemPrototype::ammo_category` replaces it. It is dead: every base-game weapontype in
   `basegame-weapontype-add.lua` sets `ammo_category` itself.
-- **`icon_mipmaps`.** It is set on many icons in `data.lua`, `data-nukes-intermediate.lua`,
+- **`icon_mipmaps`.** It is set on many icons in `True-Nukes_Continued_0.3.36/data.lua`,
+  `data-nukes-intermediate.lua`,
   `data-nukes-technology.lua`, `data-nukes-buildings.lua`, `data-nuke-terrain.lua` and
   `data-thermobaric.lua` (`thermobaric_tech.icon_mipmaps`). 2.0 removed the key (2.0.77
   changelog.txt, Version 2.0.7, section Modding: "Removed icon_mipmaps from various prototypes
@@ -321,7 +334,8 @@ above. Most of them are dormant or silent.
   (`atomic_weapon_hit_optimised`, `crater-system-se.lua`). Nothing in the runtime diff points at
   them, but they have not run.
 - **Saves.** Loading a 2.0 save made with the Continued mods on 2.1 was not tried.
-- **Space Age, and the optional integrations in `compatibility/`.** Out of scope, as above.
+- **Space Age, and the optional integrations in the three `compatibility/` directories.** Out of
+  scope, as above.
 - **Birdshot and cannon behaviour** (rank 1 and rank 7) are read from the code, not seen in-game.
 - **Not version changes, found in passing.** `clearAllCraters` in
   `True-Nukes_Continued_0.3.36/control.lua` names the tile `nuclear-crater-fill`, which no
