@@ -212,7 +212,7 @@ if(nuke_materials.fusionMaterial == "tritium-canister") then
       },
       subgroup = "intermediate-product",
       order = "r[uranium-processing]-ce[tritium-breeder-fuel-cell]",
-      fuel_category = "nuclear",
+      fuel_categories = {"nuclear"},
       burnt_result = "used-up-tritium-breeder-fuel-cell",
       fuel_value = "4GJ",
       stack_size = 50
@@ -252,7 +252,7 @@ if(nuke_materials.fusionMaterial == "tritium-canister") then
       },
       subgroup = "intermediate-product",
       order = "r[uranium-processing]-cg[adv-tritium-breeder-fuel-cell]",
-      fuel_category = "nuclear",
+      fuel_categories = {"nuclear"},
       burnt_result = "used-up-advanced-tritium-breeder-fuel-cell",
       fuel_value = "2GJ",
       stack_size = 50
