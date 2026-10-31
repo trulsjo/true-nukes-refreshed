@@ -20,7 +20,7 @@ likely each item is to stop the load, because it feeds the spike.
 - **Scope:** the three mods, base game. The optional integrations (`compatibility/` in both
   `True-Nukes_Continued` and `Warheads_Continued`, and the `?` dependencies in each `info.json`)
   are out of scope. Some of them use the same changed fields, for example `fuel_category` in
-  `prototypes/nukes/compatibility/apm-nuclear.lua`.
+  `True-Nukes_Continued_0.3.36/prototypes/nukes/compatibility/apm-nuclear.lua`.
 
 ## How it was checked
 
@@ -78,7 +78,7 @@ next.
   nested area action, so `to_use` stays nil. The function then indexes its deliberate nil local
   `ERROR_No_projectile_field_on_item____PLEASE_REPORT_AS_BUG_ON_MOD_PAGE`. *Measured* on 2.1.24:
   `weapontype-sanitise.lua:267: attempt to index local
-  'ERROR_No_projectile_field_on_item__PLEASE_REPORT_AS_BUG_ON_MOD_PAGE' (a nil value)`, after
+  'ERROR_No_projectile_field_on_item____PLEASE_REPORT_AS_BUG_ON_MOD_PAGE' (a nil value)`, after
   `NAME: piercing-shotgun-shell` in the log. The stack runs through `combine` in
   `warhead-weapontype-combination.lua` and `generate-all.lua`, during `Warheads_Continued`'s
   `data-updates.lua`.
@@ -296,7 +296,8 @@ above. Most of them are dormant or silent.
   `data-nukes-technology.lua`, `data-nukes-buildings.lua`, `data-nuke-terrain.lua` and
   `data-thermobaric.lua` (`thermobaric_tech.icon_mipmaps`). 2.0 removed the key (2.0.77
   changelog.txt, Version 2.0.7, section Modding: "Removed icon_mipmaps from various prototypes
-  using icons"). It is ignored and harmless. The one `hr_version`, in
+  using icons"). The 2.1.24 load runs passed with it set, so the game does not reject it. That
+  it is ignored and harmless is *inference*. The one `hr_version`, in
   `make_tile_transition_from_template_variation` in `data-nuke-terrain.lua`, is already inside a
   comment.
 
@@ -304,8 +305,9 @@ above. Most of them are dormant or silent.
 
 - **Graphics and sound.** Headless runs load no sprites or sounds, so nothing here shows whether
   every sprite, animation and sound definition is valid on 2.1.24. That covers
-  `True-Nukes-Graphics_Continued`, `Warheads_Continued/prototypes/sprite-assembly-util.lua` and
-  `appearance-util.lua`, and `MushroomCloudInBuilt`. The 2.0 → 2.1 prototype diff removes no
+  `True-Nukes-Graphics_Continued`,
+  `Warheads_Continued_0.0.21/prototypes/sprite-assembly-util.lua` and `appearance-util.lua`, and
+  `MushroomCloudInBuilt`. The 2.0 → 2.1 prototype diff removes no
   sprite, animation or sound property that these files set, but only a run with graphics settles
   it. The two replaced sounds (#5, #6) are still unheard.
 - **Startup settings other than the defaults.** Every run used the defaults. The `enable-*`
@@ -324,8 +326,10 @@ above. Most of them are dormant or silent.
 - **Not version changes, found in passing.** `clearAllCraters` in
   `True-Nukes_Continued_0.3.36/control.lua` names the tile `nuclear-crater-fill`, which no
   prototype defines, so it errors when called. The probe hit the same error with that name.
-  `settings.startup["keep-atomic-bomb-without-changes"]` is tested without `.value` in
-  `data-nukes-warheads-create.lua` and `data-nukes-technology.lua`, so the test is always true.
+  `settings.startup["keep-atomic-bomb-without-changes"]` is tested without `.value`, as
+  `not settings.startup["keep-atomic-bomb-without-changes"]`, in
+  `data-nukes-warheads-create.lua` and `data-nukes-technology.lua`. The setting object is always
+  truthy, so the condition is always false and the block it guards never runs.
   Both go back before 2.1 and are left for their own tickets.
 - **Open, and not this note's to settle:** which of the three mods to carry forward, whether
   `Warheads` stays a separate mod, and whether its `recipe_category` field keeps its name (rank 3).
