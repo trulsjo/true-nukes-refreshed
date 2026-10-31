@@ -104,16 +104,28 @@ repository's own parts:
 - **What a body names:** the Factorio API version when a change depends on one, and the author and
   mod when code is taken from elsewhere.
 
-No hook checks messages here yet.
+**A hook checks this, and it is not installed by default.** `.githooks/commit-msg` runs the shared
+`commit-check.ps1` from the tools submodule on the message before the commit is written. Git tracks
+neither `.git/hooks` nor a submodule's contents, so every clone opts in twice:
+
+```
+git submodule update --init
+git config core.hooksPath .githooks
+```
+
+Skipping either step is loud rather than silent: the hook says the message was not checked and
+lets the commit through. `commit-check.ps1 -Range origin/main..HEAD` checks a branch's commits.
 
 ## Shared tooling
 
-**[grado-factorio-tools](https://github.com/trulsjo/grado-factorio-tools) is expected to be
-useful here, and it is not added yet.** The other mod projects consume it as a pinned submodule at
-`vendor/grado-factorio-tools`. It has the load harness that creates a real map and asserts against
-it, the third-party mod-set fetcher, the packer that builds the distributable zips, the locale
-check, the Markdown check and the commit check. Adding it, and which of these to wire in, is
-Truls's call; `realistic-fusion-refreshed` (a sibling directory) shows how a project wires them.
+**[grado-factorio-tools](https://github.com/trulsjo/grado-factorio-tools) is a pinned submodule at
+`vendor/grado-factorio-tools`** (added 2026-10-31 at `36b34f7`), as in the other mod projects.
+Only its commit check is wired in so far, through the `commit-msg` hook above. It also has the load
+harness that creates a real map and asserts against it, the third-party mod-set fetcher, the packer
+that builds the distributable zips, the locale check and the Markdown check; which of those to wire
+in is Truls's call, and `realistic-fusion-refreshed` (a sibling directory) shows how a project wires
+them. Bumping the pin is a deliberate commit, so a change in the tools cannot alter this repo's
+checks until this repo opts in.
 
 ## Agent skills
 
