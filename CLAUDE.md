@@ -65,8 +65,15 @@ choosing between them is not.
   checked 2026-10-31). Keep the copyright notices, and credit **BicycleEater** (the original) and
   **Daimonfire** (the 2.0 port) wherever this project credits anyone.
 - **`True-Nukes_Continued_0.3.36/MushroomCloudInBuilt/` is not the authors' own art.** The README
-  says the graphics and sounds come from the MushroomCloud mod by Arcitos. Its licence is not
-  recorded here. Check it before shipping any of that material.
+  says the graphics and sounds come from the MushroomCloud mod by Arcitos, and each file carries
+  its own licence (checked 2026-10-31): the code and the explosion pictures are MIT, one sound is
+  CC BY, and five sounds are **CC BY-NC**. **NonCommercial material is acceptable in this
+  project** (Truls, 2026-10-31), so those files stay: keep the project non-commercial, and credit
+  Arcitos, BicycleEater, Fatmice, GowlerMusic, Robinhood76 and Innominatus.
+- **Two sounds in `MushroomCloudInBuilt/sound/` are still open:**
+  `nuclear_detonation_in_vincinity_2.ogg` (Audioblocks stock audio, no redistribution grant
+  recorded) and `radiation_ticking.ogg` (no recorded source). Establish their sources before
+  shipping them. Replacing them is a last resort, not the plan.
 - When code is taken from either ancestor or another mod, name the author and the mod in the
   commit body.
 
