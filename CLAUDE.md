@@ -20,9 +20,10 @@ ships them:
 - `Warheads_Continued_0.0.21/` — the shared warhead layer True Nukes depends on.
 - `True-Nukes-Graphics_Continued_0.0.3/` — optional large explosion graphics.
 
-All three declare `"factorio_version": "2.0"`. **Nothing has been loaded against 2.1 yet**, so what
-breaks there is unknown. The first useful step is to load the three mods in Factorio 2.1 and
-record what fails, not to reason about it.
+All three declare `"factorio_version": "2.0"`, so **Factorio 2.1 refuses them** ("Incompatible
+Factorio version", 2.1.24, 2026-10-31, base game only). On throwaway copies declaring 2.1, the load
+stops in `Warheads_Continued`'s data stage: `prototypes/weapontype-sanitise.lua` finds no
+`projectile` field on an item. What breaks after that is unknown.
 
 **There are no gates yet.** No test, load check or commit check runs in this repository. Until one
 exists, verification is by running the game, and a claim that a change works needs a run behind it.
@@ -70,18 +71,16 @@ choosing between them is not.
   CC BY, and five sounds are **CC BY-NC**. **NonCommercial material is acceptable in this
   project** (Truls, 2026-10-31), so those files stay: keep the project non-commercial, and credit
   Arcitos, BicycleEater, Fatmice, GowlerMusic, Robinhood76 and Innominatus.
-- **Two sounds in `MushroomCloudInBuilt/sound/` are being replaced with open-licensed ones**
-  (Truls, 2026-10-31, on #4; the work is #5 and #6). Do not ship either file. Both came unchanged
-  from MushroomCloud, and neither has a licence we can rely on:
-  - `nuclear_detonation_in_vincinity_2.ogg` is Audioblocks' *Distant Nuke Explosion*, which
-    OwnlyMe proposed and Arcitos added in MushroomCloud 1.0.1. It appears to be Storyblocks asset
-    `SBA-300070171` (by title and length; the audio was not compared). The Storyblocks Individual
-    License (updated 2026-09-28, section 2.1) bars making a stock file available to extract as a
-    standalone file, which a mod zip appears to do. Who held a subscription, if anyone, is
-    unknown.
-  - `radiation_ticking.ogg` is MushroomCloud's geiger counter sound, added in 1.0.4 by its
-    changelog (absent from 1.0.3, identical in 1.0.10). Nothing credits a maker, and its tags say
-    only 2018-06-18. MushroomCloud's MIT covers it only if Arcitos made it.
+- **One sound in `MushroomCloudInBuilt/sound/` is still being replaced** (Truls, 2026-10-31, on
+  #4; the work is #6). Do not ship `nuclear_detonation_in_vincinity_2.ogg`. It came unchanged from
+  MushroomCloud and has no licence we can rely on. It is Audioblocks' *Distant Nuke Explosion*,
+  which OwnlyMe proposed and Arcitos added in MushroomCloud 1.0.1. It appears to be Storyblocks
+  asset `SBA-300070171` (by title and length; the audio was not compared). The Storyblocks
+  Individual License (updated 2026-09-28, section 2.1) bars making a stock file available to
+  extract as a standalone file, which a mod zip appears to do. Who held a subscription, if anyone,
+  is unknown.
+- **`radiation_ticking.ogg` is no longer MushroomCloud's.** It is now 26.88 s of *Geiger_Tick_Low.wav*
+  by JustLaz (CC0, <https://freesound.org/s/616516/>), from #5, not yet heard in-game.
 - When code is taken from either ancestor or another mod, name the author and the mod in the
   commit body.
 
