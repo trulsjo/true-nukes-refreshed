@@ -180,7 +180,7 @@ data.raw.technology["atomic-bomb"].prerequisites = {"basic-atomic-weapons", "pro
 
 
 data.raw.technology["atomic-bomb"].unit.count = 1
-if(data.raw.tool["test-pack-atomic-20t-1"]) then
+if((data.raw.tool or {})["test-pack-atomic-20t-1"]) then
   -- data.raw.technology["atomic-bomb"].research_trigger = {type = "scripted", trigger_description = "Detonate a 20t test pack"}
   data.raw.technology["atomic-bomb"].research_trigger = {type = "craft-item", item = "test-pack-atomic-20t-1", count = 1}
   --data.raw.technology["atomic-bomb"].unit.ingredients = {{"test-pack-atomic-20t-1", 1}}
@@ -256,7 +256,7 @@ if(hasLarge) then
       order = "e-a-f"
     },
   }
-  if(data.raw.tool["test-pack-atomic-500t-1"]) then
+  if((data.raw.tool or {})["test-pack-atomic-500t-1"]) then
     data.raw.technology["full-fission-atomics"].research_trigger = {type = "craft-item", item = "test-pack-atomic-500t-1", count = 1}
     --data.raw.technology["full-fission-atomics"].unit =
     --  {
@@ -415,11 +415,11 @@ if(hasCompact15kt or hasCompactLarge) then
   end
   local canDoTest = true
 
-  if(data.raw.tool["test-pack-atomic-15kt-1"]) then
+  if((data.raw.tool or {})["test-pack-atomic-15kt-1"]) then
     -- data.raw.technology["compact-full-fission-weapons"].research_trigger = {type = "scripted", trigger_description = "Detonate a 15kt test pack"}
     data.raw.technology["compact-full-fission-weapons"].research_trigger = {type = "craft-item", item = "test-pack-atomic-15kt-1", count = 1}
     --table.insert(data.raw.technology["compact-full-fission-weapons"].unit.ingredients, {"test-pack-atomic-15kt-1", 1})
-  elseif(data.raw.tool["test-pack-atomic-1kt-1"])then
+  elseif((data.raw.tool or {})["test-pack-atomic-1kt-1"])then
     -- data.raw.technology["compact-full-fission-weapons"].research_trigger = {type = "scripted", trigger_description = "Detonate a 1kt test pack"}
     data.raw.technology["compact-full-fission-weapons"].research_trigger = {type = "craft-item", item = "test-pack-atomic-1kt-1", count = 1}
     --table.insert(data.raw.technology["compact-full-fission-weapons"].unit.ingredients, {"test-pack-atomic-1kt-1", 1})
@@ -429,7 +429,7 @@ if(hasCompact15kt or hasCompactLarge) then
   if(data.raw.technology["compact-californium-weapons"]) then
     table.insert(data.raw.technology["compact-full-fission-weapons"].prerequisites, "compact-californium-weapons")
 
-    if(data.raw.tool["test-pack-atomic-20t-3"] and canDoTest) then
+    if((data.raw.tool or {})["test-pack-atomic-20t-3"] and canDoTest) then
       data.raw.technology["compact-full-fission-weapons"].research_trigger = {type = "craft-item", item = "test-pack-atomic-20t-3", count = 1}
       --table.insert(data.raw.technology["compact-full-fission-weapons"].unit.ingredients, {"test-pack-atomic-20t-3", 1})
     end
@@ -555,7 +555,7 @@ if(hasCompactFusion) then
     }
   }
 
-  if(data.raw.tool["test-pack-atomic-2-stage-100kt-1"]) then
+  if((data.raw.tool or {})["test-pack-atomic-2-stage-100kt-1"]) then
     data.raw.technology["compact-fusion-weapons"].research_trigger = {type = "craft-item", item = "test-pack-atomic-2-stage-100kt-1", count = 1}
     --data.raw.technology["compact-fusion-weapons"].unit =
     --  {
