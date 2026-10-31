@@ -1,0 +1,8 @@
+{
+  "name": "tn-spike-probe",
+  "version": "0.0.1",
+  "title": "True Nukes 2.1 spike probe",
+  "author": "spike for #12",
+  "factorio_version": "2.1",
+  "dependencies": ["base", "true-nukes-refreshed", "warheads-refreshed"]
+}
