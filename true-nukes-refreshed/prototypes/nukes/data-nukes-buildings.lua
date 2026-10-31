@@ -158,7 +158,7 @@ data:extend{
     icon = "__true-nukes-refreshed__/graphics/nuclear-test-building.png",
     icon_size = 64,
     source_inventory_size = 1,
-    result_inventory_size = 1,
+    result_inventory_size = 2,
     flags = {"placeable-neutral", "placeable-player", "player-creation"},
     minable = {mining_time = 10, result = "nuclear-test-site"},
     max_health = 5000,
