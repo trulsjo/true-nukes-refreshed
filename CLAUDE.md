@@ -71,16 +71,13 @@ choosing between them is not.
   CC BY, and five sounds are **CC BY-NC**. **NonCommercial material is acceptable in this
   project** (Truls, 2026-10-31), so those files stay: keep the project non-commercial, and credit
   Arcitos, BicycleEater, Fatmice, GowlerMusic, Robinhood76 and Innominatus.
-- **One sound in `MushroomCloudInBuilt/sound/` is still being replaced** (Truls, 2026-10-31, on
-  #4; the work is #6). Do not ship `nuclear_detonation_in_vincinity_2.ogg`. It came unchanged from
-  MushroomCloud and has no licence we can rely on. It is Audioblocks' *Distant Nuke Explosion*,
-  which OwnlyMe proposed and Arcitos added in MushroomCloud 1.0.1. It appears to be Storyblocks
-  asset `SBA-300070171` (by title and length; the audio was not compared). The Storyblocks
-  Individual License (updated 2026-09-28, section 2.1) bars making a stock file available to
-  extract as a standalone file, which a mod zip appears to do. Who held a subscription, if anyone,
-  is unknown.
-- **`radiation_ticking.ogg` is no longer MushroomCloud's.** It is now 26.88 s of *Geiger_Tick_Low.wav*
-  by JustLaz (CC0, <https://freesound.org/s/616516/>), from #5, not yet heard in-game.
+- **Two sounds in `MushroomCloudInBuilt/sound/` are no longer MushroomCloud's**, because neither
+  had a licence we could rely on (Truls, 2026-10-31, on #4). Neither has been heard in-game yet
+  (#5, #6). Their earlier versions stay in git history.
+  - `radiation_ticking.ogg` is 26.88 s of *Geiger_Tick_Low.wav* by JustLaz (CC0,
+    <https://freesound.org/s/616516/>).
+  - `nuclear_detonation_in_vincinity_2.ogg` is *Distant Huge Explosion.wav* by RogerBoyX69
+    (CC BY 4.0, <https://freesound.org/s/396795/>). Credit RogerBoyX69 too.
 - When code is taken from either ancestor or another mod, name the author and the mod in the
   commit body.
 
