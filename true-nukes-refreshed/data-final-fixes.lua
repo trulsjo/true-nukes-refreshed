@@ -29,3 +29,11 @@ end
 if mods["apm_nuclear_ldinc"] then
   require("compatibility.APM-final-fixes")
 end
+
+-- Spike for #12: 2.1.7 merged RecipePrototype::category into categories.
+for _, recipe in pairs(data.raw.recipe) do
+  if recipe.category then
+    recipe.categories = {recipe.category}
+    recipe.category = nil
+  end
+end
