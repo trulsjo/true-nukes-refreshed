@@ -133,9 +133,13 @@ checks until this repo opts in.
 
 GitHub Issues on `trulsjo/true-nukes-refreshed` (a fork; Issues turned on 2026-10-31), via the
 `gh` CLI. Read a ticket with its comments, `gh issue view <n> --comments`: a triage brief carrying
-Truls's decisions is in a comment where the ticket has one. No labels or tracker page exist yet;
-the five triage roles the other mod projects use (`needs-triage`, `needs-info`, `ready-for-agent`,
-`ready-for-human`, `wontfix`) are the default if Truls wants them.
+Truls's decisions is in a comment where the ticket has one. No tracker page exists yet.
+
+### Triage labels
+
+The five canonical roles, as in the other mod projects: `needs-triage`, `needs-info`,
+`ready-for-agent`, `ready-for-human`, `wontfix` (created 2026-10-31, with
+realistic-fusion-refreshed's colours and descriptions).
 
 ### Domain docs
 
