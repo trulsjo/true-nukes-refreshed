@@ -210,32 +210,24 @@ low-resolution `draw_light` flash; and the two replaced sounds (#5, #6).
 
 ### Steps for a run by hand
 
-The spike wrote these steps but did not run them. Started through Steam, the game has no reason to
+The spike ran steps 1 and 2 and no others. Started through Steam, the game has no reason to
 restart, and Steam passes the launch options on to the game, so the run can keep its own
 write-data directory and leave `%APPDATA%/Factorio` alone. The paths are kept short on purpose.
 Run the commands in PowerShell 7 from the repository root.
 
-1. **Make the save.**
+Do not use `spike-probe.ps1 -Graphics` to make the save. That script makes the save, then tries
+`--benchmark-graphics`, which is what set off the Steam restart. If Steam were running, it might
+reopen the game against your own data. Step 2 below makes the save the way the script's first half
+does: a headless `--create` with the isolated `--config`. That step never opens a window.
 
-   ```powershell
-   pwsh -File scripts/spike-probe.ps1 -Probe graphics -Graphics -KeepTemp
-   ```
-
-   The script creates the map headless (`--create`), then tries `--benchmark-graphics`, which stops
-   at the Steam restart described above. That exit is expected. In the spike, no game started
-   after it. The script prints `temp kept at: <dir>`, and the save is `<dir>\create.zip`.
-   `-KeepTemp` keeps the save, but the mod junctions are still removed, so step 2 copies the mods.
-
-2. **Build the isolated directory.** Set `$save` to the path from step 1.
+1. **Build the isolated directory.**
 
    ```powershell
    $g = "$env:TEMP\tn-gfx"
-   $save = '<dir>\create.zip'
    New-Item -ItemType Directory "$g\mods", "$g\wd\saves" -Force | Out-Null
    'true-nukes-refreshed', 'warheads-refreshed', 'true-nukes-graphics-refreshed' |
        ForEach-Object { Copy-Item $_ "$g\mods\$_" -Recurse }
    Copy-Item scripts\spike-probe "$g\mods\tn-spike-probe" -Recurse
-   Copy-Item $save "$g\wd\saves\tn-gfx.zip"
    @"
    [path]
    read-data=__PATH__executable__/../../data
@@ -259,11 +251,24 @@ Run the commands in PowerShell 7 from the repository root.
    The last line prints the launch options for step 3. The mods are copies, not junctions, so
    deleting `$g` afterwards cannot reach the repository.
 
+2. **Make the save, headless.** This runs in the same shell as step 1, so `$g` is still set.
+
+   ```powershell
+   & 'D:/SteamLibrary/steamapps/common/Factorio/bin/x64/factorio.exe' `
+       --config "$g\config.ini" --mod-directory "$g\mods" --create "$g\wd\saves\tn-gfx.zip" |
+       Select-String 'Error|Creating new map|restart'
+   Test-Path "$g\wd\saves\tn-gfx.zip"
+   ```
+
+   It should print one `Creating new map` line and `True`, and no error. On 2026-11-01 the spike
+   ran steps 1 and 2 as written here and got exactly that. Its log had no Steam restart line.
+
 3. **Set the Steam launch options.** In Steam, open Library, then Factorio, Properties, General,
-   Launch Options, and paste the line printed in step 2.
+   Launch Options, and paste the line printed in step 1.
 
 4. **Start Factorio from Steam.** On the main menu, before loading anything, check that Load game
-   lists only `tn-gfx`, and that Mods shows only the four mods above enabled. If you see your own
+   lists only `tn-gfx`, and that Mods shows only `base`, `recycler` and the four mods above
+   enabled. The game adds `recycler`, bundled with 2.1, on its own. If you see your own
    saves, quit: the options were not passed on.
 
 5. **Load `tn-gfx`.** No mod-sync dialog should appear. The probe mod's `graphics` probe starts on
@@ -305,7 +310,7 @@ Run the commands in PowerShell 7 from the repository root.
 
 10. **Clean up.** Clear the Steam launch options first: until they are cleared, every launch of
     Factorio from Steam uses the isolated directory instead of your own. Then delete
-    `$env:TEMP\tn-gfx` and the kept harness directory from step 1.
+    `$env:TEMP\tn-gfx`.
 
 ## Silent findings, listed and not fixed
 
