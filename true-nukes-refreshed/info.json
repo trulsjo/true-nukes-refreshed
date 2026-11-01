@@ -1,0 +1,28 @@
+{
+	"name": "true-nukes-refreshed",
+	"version": "0.3.37",
+	"title": "True Nukes Refreshed",
+	"author": "Truls Johnsen, based on work by BicycleEater and Daimonfire",
+	"description": "Adds realistic nuclear blasts, and more nuclear options.",
+	"homepage": "https://github.com/trulsjo/true-nukes-refreshed",
+	"factorio_version": "2.1",
+	"dependencies": [
+		"warheads-refreshed",
+		"? SchallTankPlatoon",
+		"? Aircraft",
+		"? bobelectronics",
+		"? bobwarfare",
+		"? bobplates",
+		"? true-nukes-graphics-refreshed",
+		"? apm_nuclear_ldinc",
+		"? PlutoniumEnergy",
+		"? Nuclear Fuel",
+		"? Clowns-Nuclear",
+		"? Clowns-AngelBob-Nuclear",
+		"? space-exploration",
+		"? Krastorio2",
+		"! True-Nukes_Continued",
+		"! Warheads_Continued"
+	]
+}
+

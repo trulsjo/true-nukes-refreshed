@@ -1,0 +1,9 @@
+{
+	"name": "warheads-user",
+	"version": "0.0.1",
+	"title": "Warheads user (test fixture)",
+	"author": "Truls Johnsen",
+	"description": "Not a mod to play. Uses Warheads without True Nukes, sets recipe_category, and refuses to load if the generated recipes do not carry it.",
+	"factorio_version": "2.1",
+	"dependencies": ["warheads-refreshed"]
+}
