@@ -59,7 +59,9 @@ local probes = {}
 -- needs, for every item, the worm damaged or killed and a hit within 4 tiles of the worm: a blast
 -- at the turret can reach a worm 14 tiles away, so damage alone does not show the shot got there.
 -- A worm can die with no damage event, because the crater script removes entities itself. Each
--- hit is printed as an offset from the turret, with the trees in front of the turret.
+-- hit is printed as an offset from the turret, with the trees in front of the turret, the entity
+-- the hit landed on and the entities within 1.5 tiles of it. Every target the turret aimed at
+-- (its shooting_target, sampled each tick) is printed with the tick it was taken.
 -- shotgunclear is the same with every tree within 30 tiles of the turret removed first.
 local function shotgun_probe(clear_trees)
   return function()
@@ -88,7 +90,10 @@ local function shotgun_probe(clear_trees)
         end
         say("in front of", name, #others > 0 and table.concat(others, ",") or "nothing but trees")
         storage.worm_damage[worm.unit_number] = {total = 0, kinds = {}}
-        spots[i] = {name = name, pos = pos, turret = turret, worm = worm, unit = worm.unit_number, inserted = inserted}
+        local watch = {turret = turret, pos = pos, aims = {}}
+        storage.watch[#storage.watch + 1] = watch
+        spots[i] = {name = name, pos = pos, turret = turret, worm = worm, unit = worm.unit_number, inserted = inserted,
+          watch = watch}
         say("placed", name, "inserted", inserted, "worm", worm.valid, "trees in front", trees)
       end
     end},
@@ -101,6 +106,8 @@ local function shotgun_probe(clear_trees)
           if e.position and math.abs(e.position.x - s.pos.x) < 60 and string.match(e.id, "Weapon hit") then
             local dx, dy = e.position.x - s.pos.x, e.position.y - s.pos.y
             offsets[#offsets + 1] = string.format("(%.1f,%.1f)", dx, dy)
+            say("hit", s.name, "tick", e.tick - storage.start, string.format("at (%.1f,%.1f)", dx, dy),
+              "on", e.hit or "nothing", "near", e.near or "")
             if math.sqrt((e.position.x - wx) ^ 2 + dy ^ 2) <= 4 then near_worm = near_worm + 1 end
           end
         end
@@ -112,6 +119,7 @@ local function shotgun_probe(clear_trees)
           "worm", s.worm.valid and string.format("%.0f/%.0f", s.worm.health, s.worm.max_health) or "dead",
           "damage", string.format("%.0f", d.total), table.concat(kinds, ","),
           "hits", #offsets, "near worm", near_worm, "offsets from turret", table.concat(offsets, " "))
+        say("aimed", s.name, #s.watch.aims > 0 and table.concat(s.watch.aims, " ") or "at nothing")
         if (d.total == 0 and s.worm.valid) or near_worm == 0 then ok = false end
       end
       finish(ok, "every generated shotgun item damaged or killed its worm with a hit within 4 tiles of it")
@@ -267,6 +275,7 @@ local function start()
   storage.effects = {}
   storage.achievements = {}
   storage.worm_damage = {}
+  storage.watch = {}
   local arg = script.test_arg or "graphics"
   say("arg", arg, "tick", game.tick, "players", #game.players, "connected", #game.connected_players,
     "character", game.players[1] and game.players[1].character ~= nil)
@@ -290,12 +299,39 @@ script.on_event(defines.events.on_tick, function(event)
   for _, step in pairs(steps) do
     if step[1] == t then step[2]() end
   end
+  -- Each watched turret's aim: record every change of shooting_target, with the tick.
+  for _, w in pairs(storage.watch or {}) do
+    if w.turret.valid then
+      local target = w.turret.shooting_target
+      local key = target and target.valid and string.format("%s@(%.1f,%.1f)", target.name,
+        target.position.x - w.pos.x, target.position.y - w.pos.y) or nil
+      if key ~= w.last then
+        w.aims[#w.aims + 1] = "t" .. t .. ":" .. (key or "none")
+        w.last = key
+      end
+    end
+  end
 end)
+
+local function describe(entity)
+  return entity and entity.valid and (entity.type .. ":" .. entity.name) or nil
+end
 
 script.on_event(defines.events.on_script_trigger_effect, function(event)
   if not storage.effects then return end
   local pos = event.target_position or (event.target_entity and event.target_entity.valid and event.target_entity.position)
-  storage.effects[#storage.effects + 1] = {id = event.effect_id, position = pos, tick = event.tick}
+  local record = {id = event.effect_id, position = pos, tick = event.tick}
+  if pos and string.match(event.effect_id, "Weapon hit") then
+    -- What the shell landed on, and what stands round it. True Nukes' own handler for this event
+    -- runs first, so a tree it burns or clears is already gone from this list.
+    record.hit = describe(event.target_entity)
+    local near = {}
+    for _, e in pairs(surface().find_entities_filtered{position = pos, radius = 1.5}) do
+      near[#near + 1] = describe(e)
+    end
+    record.near = table.concat(near, ",")
+  end
+  storage.effects[#storage.effects + 1] = record
   if event.effect_id ~= "Nuke firing" then say("effect", event.effect_id, pos and (pos.x .. "," .. pos.y) or "") end
 end)
 
