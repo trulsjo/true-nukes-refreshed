@@ -92,7 +92,10 @@ The research disabled these with `ignore = true`. This time they work.
   first. Results on the final head:
   - **`shotgunclear`, 3 runs: pass every time.** All 18 items went off at their worm. Every slug
     hit dead on at (14.0, 0.0), and buckshot spread within 2.3 tiles of the worm. So the slug patch,
-    which turns the 2.1 area action into a direct one, does not make slugs go off early.
+    which turns the 2.1 area action into a direct one, does not make slugs go off early. These
+    runs show that the shell flies true with a clear path. They do not prove that trees cause the
+    early hits below: in these runs nothing else stood in front of a turret either, only fish and
+    ore, with no rocks, cliffs or enemies. Three runs on random maps is a small sample.
   - **`shotgun` with the map's trees, 5 runs: 2 passes, 3 failures.** 7 of the 30 first hits went
     off within 7.5 tiles of the turret, not at the worm:
     - 3 had trees in front of the turret (7, 13 and 38). The shotgun weapontypes set
