@@ -208,6 +208,105 @@ animation and sound definition in `true-nukes-graphics-refreshed`, `MushroomClou
 Warheads' `sprite-assembly-util.lua` and `appearance-util.lua`; the look of the 2.1
 low-resolution `draw_light` flash; and the two replaced sounds (#5, #6).
 
+### Steps for a run by hand
+
+The spike wrote these steps but did not run them. Started through Steam, the game has no reason to
+restart, and Steam passes the launch options on to the game, so the run can keep its own
+write-data directory and leave `%APPDATA%/Factorio` alone. The paths are kept short on purpose.
+Run the commands in PowerShell 7 from the repository root.
+
+1. **Make the save.**
+
+   ```powershell
+   pwsh -File scripts/spike-probe.ps1 -Probe graphics -Graphics -KeepTemp
+   ```
+
+   The script creates the map headless (`--create`), then tries `--benchmark-graphics`, which stops
+   at the Steam restart described above. That exit is expected. In the spike, no game started
+   after it. The script prints `temp kept at: <dir>`, and the save is `<dir>\create.zip`.
+   `-KeepTemp` keeps the save, but the mod junctions are still removed, so step 2 copies the mods.
+
+2. **Build the isolated directory.** Set `$save` to the path from step 1.
+
+   ```powershell
+   $g = "$env:TEMP\tn-gfx"
+   $save = '<dir>\create.zip'
+   New-Item -ItemType Directory "$g\mods", "$g\wd\saves" -Force | Out-Null
+   'true-nukes-refreshed', 'warheads-refreshed', 'true-nukes-graphics-refreshed' |
+       ForEach-Object { Copy-Item $_ "$g\mods\$_" -Recurse }
+   Copy-Item scripts\spike-probe "$g\mods\tn-spike-probe" -Recurse
+   Copy-Item $save "$g\wd\saves\tn-gfx.zip"
+   @"
+   [path]
+   read-data=__PATH__executable__/../../data
+   write-data=$g\wd
+   "@ | Set-Content "$g\config.ini"
+   @'
+   {"mods": [
+     {"name": "base", "enabled": true},
+     {"name": "elevated-rails", "enabled": false},
+     {"name": "quality", "enabled": false},
+     {"name": "space-age", "enabled": false},
+     {"name": "true-nukes-refreshed", "enabled": true},
+     {"name": "warheads-refreshed", "enabled": true},
+     {"name": "true-nukes-graphics-refreshed", "enabled": true},
+     {"name": "tn-spike-probe", "enabled": true}
+   ]}
+   '@ | Set-Content "$g\mods\mod-list.json"
+   "--config $g\config.ini --mod-directory $g\mods"
+   ```
+
+   The last line prints the launch options for step 3. The mods are copies, not junctions, so
+   deleting `$g` afterwards cannot reach the repository.
+
+3. **Set the Steam launch options.** In Steam, open Library, then Factorio, Properties, General,
+   Launch Options, and paste the line printed in step 2.
+
+4. **Start Factorio from Steam.** On the main menu, before loading anything, check that Load game
+   lists only `tn-gfx`, and that Mods shows only the four mods above enabled. If you see your own
+   saves, quit: the options were not passed on.
+
+5. **Load `tn-gfx`.** No mod-sync dialog should appear. The probe mod's `graphics` probe starts on
+   the first tick, because a normal game has no `--test-arg`:
+   - At tick 30 (half a second in), a 20 t warhead goes off 40 tiles east of the character, and a
+     thermobaric warhead 20 tiles west and 10 south. Zoom out to see both. The character may die
+     and respawn; that is the blast, not a fault.
+   - At tick 600 the probe calls `script.finish_test`. The spike never ran that outside a test
+     scenario. An error that names `tn-spike-probe` at about ten seconds is the probe's, not the
+     mod's.
+
+6. **Set off larger yields** from the console. `/c` turns achievements off for this save, which
+   does not matter here. Each command fires 200 tiles east:
+
+   ```lua
+   /c local p = game.player.position game.player.surface.create_entity{name = "warhead-util-projectile-atomic-15kt", position = {p.x + 199, p.y}, target = {p.x + 200, p.y}, speed = 100, max_range = 1, force = "player"}
+   ```
+
+   Swap the name for `warhead-util-projectile-atomic-2-stage-100kt` or
+   `warhead-util-projectile-atomic-2-stage-1Mt`, and move the target further away for those. In
+   the headless runs, the 1 Mt crater covered 206686 tiles.
+
+7. **Look for:**
+   - any error dialog or missing-sprite square at start-up, at the load, or at each blast;
+   - the flash: the 2.1 low-resolution `draw_light`, and whether it looks blocky;
+   - the mushroom cloud and fireball animations from `MushroomCloudInBuilt` and
+     `true-nukes-graphics-refreshed`, the shockwave, crater tiles and scorch decals, and fires;
+   - the thermobaric blast, which is drawn by Warheads' `appearance-util.lua`.
+
+8. **Listen for** the detonation sounds and, nearer a blast, the distant-explosion and Geiger
+   sounds: `nuclear_detonation_in_vincinity_2.ogg` (#6) and `radiation_ticking.ogg` (#5) are the
+   two replaced files. Which event plays which sound was not traced in the spike.
+
+9. **Read the log** after quitting:
+
+   ```powershell
+   Select-String -Path "$env:TEMP\tn-gfx\wd\factorio-current.log" -Pattern 'Error|Warning|sprite|sound'
+   ```
+
+10. **Clean up.** Clear the Steam launch options first: until they are cleared, every launch of
+    Factorio from Steam uses the isolated directory instead of your own. Then delete
+    `$env:TEMP\tn-gfx` and the kept harness directory from step 1.
+
 ## Silent findings, listed and not fixed
 
 None of these stops anything. Fix-or-keep is for the spec.
