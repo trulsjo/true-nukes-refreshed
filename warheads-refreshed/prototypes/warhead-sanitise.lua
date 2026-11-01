@@ -37,7 +37,8 @@ local function sanitseWarhead(key, warhead)
 
   result.warhead.recipe = {}
 
-  result.warhead.recipe.category = warhead.recipe_category or "crafting"
+  -- Factorio 2.1 replaced a recipe's category with categories. recipe_category keeps its name.
+  result.warhead.recipe.categories = {warhead.recipe_category or "crafting"}
   result.warhead.recipe.type = "recipe"
   result.warhead.recipe.name = key
   result.warhead.recipe.enabled = false

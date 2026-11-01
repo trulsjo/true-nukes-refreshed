@@ -450,7 +450,8 @@ local function sanitseWeapontype(weapontype)
     end
   end
   result.recipe.energy_required = weapontype.energy_required
-  result.recipe.category = weapontype.recipe_category
+  -- Factorio 2.1 replaced a recipe's category with categories. recipe_category keeps its name.
+  result.recipe.categories = weapontype.recipe_category and {weapontype.recipe_category}
   result.recipe.subgroup = weapontype.recipe_subgroup
   result.recipe.hide_from_player_crafting = weapontype.hide_from_player_crafting
   result.recipe.warhead_count = weapontype.warhead_count or result.item.magazine_size
