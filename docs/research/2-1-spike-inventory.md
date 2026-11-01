@@ -25,7 +25,7 @@ listed too.
 
 | # | Stage | What broke | 2.x change behind it | Patch on the spike | Proved by |
 |---|---|---|---|---|---|
-| 1 | data | buckshot and slug: no projectile found | 2.1.7 new `piercing-shotgun-shell` shape | made them work (see below) | load, `shotgun` probe |
+| 1 | data | buckshot and slug: no projectile found | 2.1.7 new `piercing-shotgun-shell` shape | made them work (see below) | load, `shotgunclear` and `shotgun` probes |
 | 2 | data | `fuel_category` removed | 2.1.20 | `fuel_categories` | load |
 | 3 | data | recipe `category` removed | 2.1.7 | `data-final-fixes.lua` loop | load |
 | 4 | data | product `probability` renamed | 2.1.7 | `data-final-fixes.lua` loop | load |
@@ -82,10 +82,34 @@ The research disabled these with `ignore = true`. This time they work.
   (`Atomic Weapon hit 0.1t` and so on). In the first run, buckshot 0.1 t hit at five spread
   points round the worm (x = 711.9 to 716.0, y = −2.1 to 1.8, worm at x = 714), and slug hit
   dead on (x = 2114, 2814 and 3514, y = 0).
-- **Observed, cause not confirmed:** in the final run, five of the seven hits went off 1.5 to 3.6
-  tiles from the firing turret, not at the worm (for example slug 2 t at x = 3498.5, turret at
-  3500). The likely cause is trees: the shotgun weapontypes set `collide_anyway = true`, so the
-  pellet hits the first thing in its path. That is not verified. It is not a script error.
+- **The shot reaches the worm when nothing is in the way** (*measured*, after the review on the
+  spike). The first probe passed on any hit within 60 tiles of the turret, so it could not tell a
+  shot that reached the worm from one that went off at the muzzle. One earlier run had five of
+  seven hits 1.5 to 3.6 tiles from the turret, one slug 2 t even behind it (x = 3498.5, turret at
+  3500, worm at 3514). The probe now passes only if every item's worm is damaged or killed and a
+  hit lands within 4 tiles of it. It prints each hit as an offset from the turret, and what stands
+  in front of the turret. `shotgunclear` is the same probe with every tree within 30 tiles removed
+  first. Results on the final head:
+  - **`shotgunclear`, 3 runs: pass every time.** All 18 items went off at their worm. Every slug
+    hit dead on at (14.0, 0.0), and buckshot spread within 2.3 tiles of the worm. So the slug patch,
+    which turns the 2.1 area action into a direct one, does not make slugs go off early.
+  - **`shotgun` with the map's trees, 5 runs: 2 passes, 3 failures.** 7 of the 30 first hits went
+    off within 7.5 tiles of the turret, not at the worm:
+    - 3 had trees in front of the turret (7, 13 and 38). The shotgun weapontypes set
+      `collide_anyway = true`, so the shell goes off on the first thing in its path.
+    - 2 were in runs with enemy spawners or behemoth worms within 8 tiles of the turret. One was a
+      slug 2 t at (−0.5, 7.5), next to a spitter spawner. The turret most likely fired at those
+      enemies, which is not a fault. That would also explain the earlier slug behind the turret.
+      Which target each shot was aimed at was not recorded.
+    - 2 are unexplained. Those runs counted only the trees, in a smaller box, and not what else
+      was in front.
+  - **Worms killed with no damage event:** most worms died with no `on_entity_damaged` at all.
+    True Nukes' crater script removes entities itself, so the probe counts a dead worm as hit.
+  - **Later hits away from the worm** (for example (6.7, 9.7) and (10.5, −14.5)) came after the worm
+    had died. They are the turret's later shots at other targets.
+
+  It is not a script error in any run. Whether a nuclear shotgun shell should go off on a tree in
+  its path is the mod's design, and not this inventory's to judge.
 - **Birdshot generates nothing in the base game.** `weaponTypes["shotgun-shell-birdshot"]` has
   `size = 1`, and the smallest True Nukes warhead has `preciseSize = 2`, so `generate-all.lua`
   pairs no warhead with it. *Measured*: the default dump has no birdshot item. Its code path,
@@ -165,7 +189,7 @@ Every run below was on the final branch head, with all six patches, unless it sa
 | Area | Probe | Measured |
 |---|---|---|
 | Load and `on_init` | `scripts/load-check.ps1` | OK: 3 mods validated, map created |
-| Buckshot and slug fire | `shotgun` | all 6 items fired and detonated (above) |
+| Buckshot and slug fire and reach their target | `shotgunclear`, `shotgun` | trees cleared: all 6 items reached and killed the worm, 3 runs of 3. With trees: 2 runs of 5 passed (above) |
 | `nuclear-test-site`, 20 t, research by test | `testsite` | detonated, `atomic-bomb` researched |
 | `nuclear-test-site`, 15 kt | `testsite15` | `Atomic Weapon hit 15kt`, 32 533 crater tiles |
 | `fusion-test-site`, 2-stage 15 kt (`set_recipe`, `assembling-machine`) | `fusionsite` | `Atomic Weapon hit 15kt`, 32 533 crater tiles |
