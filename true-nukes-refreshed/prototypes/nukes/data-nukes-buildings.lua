@@ -44,7 +44,7 @@ for _,w in pairs(warheads_to_add) do
           {type = "item", name = "detonation" .. warhead.appendName .. explosion.appendName .. w.label, amount = 1}
         },
       }
-      if data.raw.tool["test-pack" .. warhead.appendName .. explosion.appendName .. w.label] then
+      if (data.raw.tool or {})["test-pack" .. warhead.appendName .. explosion.appendName .. w.label] then
         table.insert(recipe.results, {type = "item", 1, name = "test-pack" .. warhead.appendName .. explosion.appendName .. w.label, amount = 1})
         recipe.main_product = "test-pack" .. w.name .. w.label
       end
