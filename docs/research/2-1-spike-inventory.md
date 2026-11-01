@@ -15,8 +15,11 @@ listed too.
 - **Branch:** `spike/2-1-port`. It is throwaway, and nothing on it lands on `main`. The mods are
   left loading, because the save measurement will load them next.
 - **Isolation:** every run used the shared harness's own mod directory and write-data directory
-  under `%TEMP%`. Nothing read or wrote `%APPDATA%/Factorio`. The one check made there listed file
-  timestamps only, to confirm no run had written to it (see [Graphics](#graphics-not-run)).
+  under `%TEMP%`, and no game run read or wrote `%APPDATA%/Factorio`. **Steam did write one file
+  there.** It wrote `saves/steam_autocloud.vdf`, its cloud-sync file, once when the hand-run
+  graphics game started. It wrote it once before that, at 12:29:33, when a test of the
+  graphics-run wizard sent Steam a launch request; the game did not start then. The checks made
+  there listed file timestamps only (see [Graphics](#graphics-run-by-hand)).
 
 ## Summary
 
@@ -193,20 +196,56 @@ called `LuaPlayer::unlock_achievement("nuke-self")` and got no event either. So 
 not report achievements, and whether any of them unlocks on 2.1 is not known. A player's game is
 needed for that.
 
-## Graphics: not run
+## Graphics: run by hand
 
-A run with graphics, which would load the sprites and sounds and draw the `draw_light` flash, could
-not be done unattended. `scripts/spike-probe.ps1 -Graphics` makes a save, then starts
+A run with graphics loads the sprites and sounds and draws the `draw_light` flash. The spike could
+not do one unattended, so Truls did it by hand on 2026-11-01, following the
+[steps below](#steps-for-a-run-by-hand). What follows is what Truls saw and heard, and what the game's
+log of that run showed.
+
+### What Truls saw and heard
+
+The game's log shows it ran isolated: `Config path` and `Write data path` were both under
+`%TEMP%/tn-gfx`. The game loaded the three mods and the probe mod with Space Age, Quality and
+Elevated Rails off. The session lasted about 24 minutes, and the player quit it.
+
+- **Load:** sprites and sounds loaded with **no error**. The log's only warning is vanilla's
+  `BlueprintLibrary.cpp` storage sync (1.8 s). Truls saw no error dialog and no missing-sprite
+  square at start-up, at the load, or at any blast.
+- **The probe's two blasts** (20 t and thermobaric): both went off with no error, including at the
+  probe's `script.finish_test` call at tick 600. The character died, and died again on respawn.
+  The thermobaric blast "seemed right", but it was not on screen.
+- **15 kt, 100 kt and 1 Mt from the console:** all three went off. The character died each time,
+  and **the game froze for some seconds each time**.
+- **The flash:** bright, and it "seemed to fill the whole screen with the same color". Whether
+  that is the 2.1 low-resolution `draw_light` or the flash as designed was not settled.
+- **Mushroom cloud and fireball:** not judged. They were "hard to tell because of the size".
+- **Ground:** craters and scorch marks were there, and the trees nearby were gone, presumably
+  burned. The shockwave and the fires themselves were hard to judge with a dead character, the
+  freeze, and the flash filling the screen.
+- **Sounds:** the Geiger ticking (`radiation_ticking.ogg`, #5) was heard. Whether the detonation
+  sounds and the distant-explosion sound (`nuclear_detonation_in_vincinity_2.ogg`, #6) played is
+  **not known**.
+- **Steam and `%APPDATA%/Factorio`:** launching through Steam wrote one file there,
+  `saves/steam_autocloud.vdf`, at the game's start (13:38:55). That is Steam's cloud-sync file, not
+  the game's. The game logged `Cloud player-data.json available`, so it read Steam Cloud's copy of
+  the player data. Nothing else under `%APPDATA%/Factorio` was written during the run, checked by
+  file timestamps only.
+
+Still not checked: the cloud, fireball and shockwave animations close up; which event plays which
+sound; and each sprite definition one by one. A smaller yield at a distance, with the character
+out of the blast, would make the animations easier to judge.
+
+### Why the spike could not run it
+
+The first attempt was unattended. `scripts/spike-probe.ps1 -Graphics` makes a save, then starts
 `--benchmark-graphics` on it with the harness's isolated `--config`. The Steam build of Factorio
 then logs `Initializing Steam API.` and `Steam requires game restart, restarting...` and exits 0
 without running. A relaunch through Steam would not carry the isolated config, and would run
 against `%APPDATA%/Factorio`. No Factorio process started in the following minute. A listing of
 file timestamps under `%APPDATA%/Factorio` showed nothing written in the previous 20 minutes. The
 spike did not work round Steam: it left the install alone and did not try `steam_appid.txt` or a
-`SteamAppId` environment variable. **Left to Truls.** Still unchecked, as before: every sprite,
-animation and sound definition in `true-nukes-graphics-refreshed`, `MushroomCloudInBuilt`, and
-Warheads' `sprite-assembly-util.lua` and `appearance-util.lua`; the look of the 2.1
-low-resolution `draw_light` flash; and the two replaced sounds (#5, #6).
+`SteamAppId` environment variable. It was left to Truls, who did the run above.
 
 ### Steps for a run by hand
 
@@ -370,4 +409,8 @@ None of these stops anything. Fix-or-keep is for the spec.
 - How the real fixes look: the two `data-final-fixes.lua` loops are throwaway, and rows 1, 5 and
   6 are the smallest patches that got past the failure, not designs.
 - Whether birdshot should be reachable, given that no base-game warhead fits it.
-- The graphics run, and hearing the sounds, are Truls's.
+- From the graphics run (see [Graphics](#graphics-run-by-hand)):
+  - whether the screen-filling flash is the 2.1 low-resolution `draw_light` or as designed;
+  - whether the freeze of some seconds at 15 kt and above is acceptable, and what causes it;
+  - whether the detonation and distant-explosion sounds play;
+  - how the cloud, fireball and shockwave look up close.
