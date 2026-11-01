@@ -1,5 +1,29 @@
 local util = require("warheads")
 
+-- The first projectile delivery in an action, an array of actions, or the actions nested in their
+-- deliveries' target_effects. Factorio 2.1's piercing-shotgun-shell nests its pellets that way.
+local function find_nested_projectile_delivery(actions)
+  if actions.type or actions.action_delivery then actions = {actions} end
+  for _, action in pairs(actions) do
+    local deliveries = action.action_delivery
+    if deliveries then
+      if deliveries.type then deliveries = {deliveries} end
+      for _, del in pairs(deliveries) do
+        if del.projectile then return del end
+        local effects = del.target_effects
+        if effects then
+          if effects.type then effects = {effects} end
+          for _, effect in pairs(effects) do
+            if effect.type == "nested-result" and effect.action then
+              local found = find_nested_projectile_delivery(effect.action)
+              if found then return found end
+            end
+          end
+        end
+      end
+    end
+  end
+end
 
 
 local function sanitseWeapontype(weapontype)
@@ -259,6 +283,9 @@ local function sanitseWeapontype(weapontype)
           if(to_use) then
             break
           end
+        end
+        if(not to_use) then
+          to_use = find_nested_projectile_delivery(a)
         end
         if(not to_use) then
           log("ERROR: Cannot find projectile field")

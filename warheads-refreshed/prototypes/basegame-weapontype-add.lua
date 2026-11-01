@@ -53,7 +53,17 @@ weaponTypes["shotgun-shell-buckshot"]= {
   item = table.deepcopy(data.raw.ammo["piercing-shotgun-shell"]),
   projectile = table.deepcopy(data.raw.projectile["piercing-shotgun-pellet"]),
 }
-weaponTypes["shotgun-shell-buckshot"].item.ammo_type.action[shotgunActionIndex].repeat_count = 6
+-- The action that fires the pellets. In 2.0 it is action[2]. Factorio 2.1 gives
+-- piercing-shotgun-shell one action, whose instant delivery fires the pellets from an area action
+-- nested in its target_effects.
+local function shotgunPelletAction(item)
+  local actions = item.ammo_type.action
+  if actions[2] then return actions[2] end
+  local effects = actions[1].action_delivery.target_effects
+  if effects and effects.type == "nested-result" then return effects.action end
+  return actions[1]
+end
+shotgunPelletAction(weaponTypes["shotgun-shell-buckshot"].item).repeat_count = 6
 
 weaponTypes["shotgun-shell-slug"]= {
   type = "projectile",
@@ -75,11 +85,18 @@ weaponTypes["shotgun-shell-slug"]= {
   item = table.deepcopy(data.raw.ammo["piercing-shotgun-shell"]),
   projectile = table.deepcopy(data.raw.projectile["piercing-shotgun-pellet"]),
 }
-weaponTypes["shotgun-shell-slug"].item.ammo_type.action[shotgunActionIndex].repeat_count = 1
-if weaponTypes["shotgun-shell-slug"].item.ammo_type.action[shotgunActionIndex].action_delivery.type then
-  weaponTypes["shotgun-shell-slug"].item.ammo_type.action[shotgunActionIndex].action_delivery.direction_deviation = 0
+local slugAction = shotgunPelletAction(weaponTypes["shotgun-shell-slug"].item)
+slugAction.repeat_count = 1
+if slugAction.type == "area" then
+  -- 2.1 spreads the pellets over an area round the target. A slug does not spread.
+  slugAction.type = "direct"
+  slugAction.radius = nil
+  slugAction.target_entities = nil
+end
+if slugAction.action_delivery.type then
+  slugAction.action_delivery.direction_deviation = 0
 else
-  weaponTypes["shotgun-shell-slug"].item.ammo_type.action[shotgunActionIndex].action_delivery[1].direction_deviation = 0
+  slugAction.action_delivery[1].direction_deviation = 0
 end
 
 weaponTypes["shotgun-shell"]= { -- DO NOT USE, ONLY HERE AS FALLBACK...
