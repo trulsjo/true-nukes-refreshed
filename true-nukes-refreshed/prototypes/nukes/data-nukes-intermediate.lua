@@ -37,7 +37,7 @@ if(nuke_materials.smallBoomMaterial == "californium") then
       name = "californium-processing",
       energy_required = 120,
       enabled = false,
-      category = "centrifuging",
+      categories = {"centrifuging"},
       ingredients = {
         {type = "item", name = nuke_materials.boomMaterial, amount = 10},
         {type = "item", name = nuke_materials.deadMaterial, amount = 1}
@@ -58,7 +58,7 @@ if(nuke_materials.smallBoomMaterial == "californium") then
       name = "advanced-californium-processing",
       energy_required = 20,
       enabled = false,
-      category = "centrifuging",
+      categories = {"centrifuging"},
       ingredients = {
         {type = "item", name = nuke_materials.boomMaterial, amount = 5},
         {type = "item", name = nuke_materials.reflector, amount = 2}
@@ -88,7 +88,7 @@ data:extend{
     name = "advanced-kovarex-enrichment-process",
     energy_required = 10,
     enabled = false,
-    category = "centrifuging",
+    categories = {"centrifuging"},
     ingredients = {
       {type = "item", name = "uranium-235", amount = 20},
       {type = "item", name = "uranium-238", amount = 5},
@@ -121,7 +121,7 @@ data:extend{
   {
     type = "recipe",
     name = "FOGBANK",
-    category = "chemistry",
+    categories = {"chemistry"},
     energy_required = 20,
     enabled = false,
     ingredients =
@@ -158,7 +158,7 @@ data:extend{
   {
     type = "recipe",
     name = "neutron-reflector",
-    category = "chemistry",
+    categories = {"chemistry"},
     energy_required = 10,
     enabled = false,
     ingredients =
@@ -283,7 +283,7 @@ if(nuke_materials.fusionMaterial == "tritium-canister") then
       name = "tritium-extraction",
       energy_required = 60,
       enabled = false,
-      category = "centrifuging",
+      categories = {"centrifuging"},
       ingredients = {
         {type = "item", name = "used-up-tritium-breeder-fuel-cell", amount = 5},
         {type = "item", name = "plastic-bar", amount = 5}
@@ -304,7 +304,7 @@ if(nuke_materials.fusionMaterial == "tritium-canister") then
       name = "advanced-tritium-extraction",
       energy_required = 30,
       enabled = false,
-      category = "centrifuging",
+      categories = {"centrifuging"},
       ingredients = {
         {type = "item", name = "used-up-advanced-tritium-breeder-fuel-cell", amount = 2},
         {type = "item", name = "plastic-bar", amount = 5}
@@ -328,7 +328,7 @@ if(nuke_materials.fusionMaterial == "tritium-canister") then
       name = "advanced-tritium-breeder-fuel-cell",
       energy_required = 15,
       enabled = false,
-      category = "crafting-with-fluid",
+      categories = {"crafting-with-fluid"},
       ingredients = table.deepcopy(data.raw.recipe["uranium-fuel-cell"].ingredients),
       results = {
         {type = "item", name = "advanced-tritium-breeder-fuel-cell", amount = 10}
@@ -339,7 +339,7 @@ if(nuke_materials.fusionMaterial == "tritium-canister") then
       name = "tritium-breeder-fuel-cell",
       energy_required = 10,
       enabled = false,
-      category = "crafting-with-fluid",
+      categories = {"crafting-with-fluid"},
       ingredients = table.deepcopy(data.raw.recipe["uranium-fuel-cell"].ingredients),
       results = {
         {type = "item", name = "tritium-breeder-fuel-cell", amount = 10}

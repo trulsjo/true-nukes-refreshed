@@ -31,7 +31,7 @@ for _,w in pairs(warheads_to_add) do
       local recipe = {
         type = "recipe",
         name = "detonation" .. warhead.appendName .. explosion.appendName .. w.label,
-        category = "nuclear-detonation",
+        categories = {"nuclear-detonation"},
         enabled = true,
         hide_from_player_crafting = true,
         hide_from_stats = true,
@@ -49,7 +49,7 @@ for _,w in pairs(warheads_to_add) do
         recipe.main_product = "test-pack" .. w.name .. w.label
       end
       if(w.fusion) then
-        recipe.category = "fusion-detonation"
+        recipe.categories = {"fusion-detonation"}
       end
       if warhead.additional_ingedients then
         for _,i in pairs(warhead.additional_ingedients) do
