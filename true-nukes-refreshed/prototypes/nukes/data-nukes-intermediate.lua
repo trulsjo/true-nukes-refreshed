@@ -74,7 +74,7 @@ if(nuke_materials.smallBoomMaterial == "californium") then
         {type = "item", name = nuke_materials.boomMaterial, amount = 4},
         {type = "item", name = nuke_materials.deadMaterial, amount = 1},
         {type = "item", name = nuke_materials.reflector, amount = 1},
-        {type = "item", name = nuke_materials.reflector, amount = 1, probability = 0.6},
+        {type = "item", name = nuke_materials.reflector, amount = 1, independent_probability = 0.6},
         {type = "item", name = "californium", amount = 1}
       },
       allow_decomposition = false
@@ -105,7 +105,7 @@ data:extend{
       {type = "item", name = "uranium-235", amount = 21},
       {type = "item", name = "uranium-238", amount = 2},
       {type = "item", name = nuke_materials.reflector, amount = 1},
-      {type = "item", name = nuke_materials.reflector, amount = 1, probability = 0.6}
+      {type = "item", name = nuke_materials.reflector, amount = 1, independent_probability = 0.6}
     },
     allow_decomposition = false
   },
@@ -319,7 +319,7 @@ if(nuke_materials.fusionMaterial == "tritium-canister") then
       results = {
         {type = "item", name = "tritium-canister", amount = 1},
         {type = "item", name = "uranium-238", amount = 2},
-        {type = "item", name = nuke_materials.reflector, amount = 1, probability = 0.8}
+        {type = "item", name = nuke_materials.reflector, amount = 1, independent_probability = 0.8}
       },
       allow_decomposition = false
     },
