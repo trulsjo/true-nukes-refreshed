@@ -1,0 +1,9 @@
+{
+  "name": "tn-port-probe",
+  "version": "0.0.1",
+  "title": "True Nukes Refreshed port probe",
+  "author": "true-nukes-refreshed",
+  "description": "Test-only mod: runs one in-game probe under --test-scenario. Never shipped.",
+  "factorio_version": "2.1",
+  "dependencies": ["base", "true-nukes-refreshed", "warheads-refreshed"]
+}
