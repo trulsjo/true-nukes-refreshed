@@ -1,11 +1,14 @@
 {
  "name": "true-nukes-graphics-refreshed",
- "version": "0.0.3",
- "title": "True Nukes Graphics Continued",
- "author": "Daimonfire",
+ "version": "0.0.4",
+ "title": "True Nukes Graphics Refreshed",
+ "author": "Truls Johnsen, based on work by BicycleEater and Daimonfire",
  "description": "Adds bigger animations for the nukes.",
- "homepage": "https://github.com/Daimonfire1/Factorio-True-Nukes_Continued",
+ "homepage": "https://github.com/trulsjo/true-nukes-refreshed",
  "factorio_version": "2.1",
- "dependencies": []
+ "dependencies": [
+  "! True-Nukes_Continued",
+  "! Warheads_Continued"
+ ]
 }
 

@@ -1,10 +1,10 @@
 {
 	"name": "true-nukes-refreshed",
-	"version": "0.3.36",
-	"title": "True Nukes Continued",
-	"author": "Daimonfire",
+	"version": "0.3.37",
+	"title": "True Nukes Refreshed",
+	"author": "Truls Johnsen, based on work by BicycleEater and Daimonfire",
 	"description": "Adds realistic nuclear blasts, and more nuclear options.",
-	"homepage": "https://github.com/Daimonfire1/Factorio-True-Nukes_Continued",
+	"homepage": "https://github.com/trulsjo/true-nukes-refreshed",
 	"factorio_version": "2.1",
 	"dependencies": [
 		"warheads-refreshed",
@@ -20,7 +20,9 @@
 		"? Clowns-Nuclear",
 		"? Clowns-AngelBob-Nuclear",
 		"? space-exploration",
-		"? Krastorio2"
+		"? Krastorio2",
+		"! True-Nukes_Continued",
+		"! Warheads_Continued"
 	]
 }
 

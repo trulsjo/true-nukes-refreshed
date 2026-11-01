@@ -1,10 +1,10 @@
 {
 	"name": "warheads-refreshed",
-	"version": "0.0.21",
-	"title": "Warheads Continued",
-	"author": "Daimonfire",
+	"version": "0.0.22",
+	"title": "Warheads Refreshed",
+	"author": "Truls Johnsen, based on work by BicycleEater and Daimonfire",
 	"description": "Acts as a super-cross mod for weapons, allowing mods adding warheads to avoid working to support every different mod.",
-	"homepage": "https://github.com/Daimonfire1/Factorio-True-Nukes_Continued",
+	"homepage": "https://github.com/trulsjo/true-nukes-refreshed",
 	"factorio_version": "2.1",
 	"dependencies": [
 		"? SchallTankPlatoon",
@@ -14,7 +14,9 @@
 		"? RampantArsenal",
 		"? aai-vehicles-ironclad",
 		"? lightArtillery",
-		"? lightArtillery-Balanced"
+		"? lightArtillery-Balanced",
+		"! True-Nukes_Continued",
+		"! Warheads_Continued"
 	]
 }
 
