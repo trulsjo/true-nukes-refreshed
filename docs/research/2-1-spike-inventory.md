@@ -103,9 +103,30 @@ The research disabled these with `ignore = true`. This time they work.
     - 2 were in runs with enemy spawners or behemoth worms within 8 tiles of the turret. One was a
       slug 2 t at (−0.5, 7.5), next to a spitter spawner. The turret most likely fired at those
       enemies, which is not a fault. That would also explain the earlier slug behind the turret.
-      Which target each shot was aimed at was not recorded.
-    - 2 are unexplained. Those runs counted only the trees, in a smaller box, and not what else
-      was in front.
+      Those runs did not record which target each shot was aimed at; the runs below did.
+    - 2 were not explained in those runs. They counted only the trees, in a smaller box, and not
+      what else was in front. Those runs were not recorded fully enough to go back to; the runs
+      below are new.
+  - **`shotgun` recording aim and landing, 5 more runs: 1 pass, 4 failures.** The probe now also
+    records every target the turret aims at (its `shooting_target`, each tick), plus, for each
+    hit, the entity it landed on and what stands within 1.5 tiles of it. 9 of the 30 first hits
+    went off short, and **every one is explained**:
+    - **7 were trees on the firing line.** The turret was aiming at the worm. The shell went off
+      on the line to it, 1.5 to 8.4 tiles out (y within 0.4). Each of these turrets had trees in
+      front, 7 to 55 of them. Nothing else was there: no rocks, cliffs, ore or enemies. In one,
+      a tree stump stood at the hit point. The trees themselves are not in the list of what
+      stood near a hit: True Nukes' own handler for the same event runs first and burns or clears
+      them. These shells are aimed at a position, so the event names no entity they landed on.
+    - **2 were aimed at another enemy.** One turret aimed at a biter spawner 2.5 tiles behind it
+      and hit it at (−2.5, −0.5). Another aimed at a behemoth worm and hit it at (−5.4, 3.5). These
+      are the turret choosing a closer target, not a fault. They are the same pattern as the
+      earlier slug behind the turret. A trial run before these five showed three more, all aimed:
+      a small biter that walked to 1.4 tiles from the turret, and behemoth worms at 3 and 8 tiles.
+    - Trees in front do not always stop a shot. Some items passed with 13 to 54 trees counted,
+      because the box counted covers more than the shell's path.
+
+    So the two unexplained hits above were most likely one of these two causes. That is inferred
+    from these runs, not re-observed.
   - **Worms killed with no damage event:** most worms died with no `on_entity_damaged` at all.
     True Nukes' crater script removes entities itself, so the probe counts a dead worm as hit.
   - **Later hits away from the worm** (for example (6.7, 9.7) and (10.5, −14.5)) came after the worm
@@ -192,7 +213,7 @@ Every run below was on the final branch head, with all six patches, unless it sa
 | Area | Probe | Measured |
 |---|---|---|
 | Load and `on_init` | `scripts/load-check.ps1` | OK: 3 mods validated, map created |
-| Buckshot and slug fire and reach their target | `shotgunclear`, `shotgun` | trees cleared: all 6 items reached and killed the worm, 3 runs of 3. With trees: 2 runs of 5 passed (above) |
+| Buckshot and slug fire and reach their target | `shotgunclear`, `shotgun` | trees cleared: all 6 items reached and killed the worm, 3 runs of 3. With trees: 3 runs of 10 passed. Every short hit recorded was a tree in the path or a closer enemy (above) |
 | `nuclear-test-site`, 20 t, research by test | `testsite` | detonated, `atomic-bomb` researched |
 | `nuclear-test-site`, 15 kt | `testsite15` | `Atomic Weapon hit 15kt`, 32 533 crater tiles |
 | `fusion-test-site`, 2-stage 15 kt (`set_recipe`, `assembling-machine`) | `fusionsite` | `Atomic Weapon hit 15kt`, 32 533 crater tiles |
