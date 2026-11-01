@@ -11,7 +11,7 @@
     mods, saves and settings are neither read nor written.
 
 .PARAMETER Probe
-    The probe's name, passed as --test-arg: shotgun, testsite, testsite15, fusionsite, achieve,
+    The probe's name, passed as --test-arg: shotgun, shotgunclear, testsite, testsite15, fusionsite, achieve,
     big15, big2s15, big100, big100full, big1M, basic.
 
 .PARAMETER Settings

@@ -55,8 +55,14 @@ end
 -- Each probe: a list of {tick, function}. A function may call finish.
 local probes = {}
 
--- Generated shotgun ammo fired from gun turrets at worms, one turret per item, far apart.
-probes.shotgun = function()
+-- Generated shotgun ammo fired from gun turrets at worms, one turret per item, far apart. A pass
+-- needs, for every item, the worm damaged or killed and a hit within 4 tiles of the worm: a blast
+-- at the turret can reach a worm 14 tiles away, so damage alone does not show the shot got there.
+-- A worm can die with no damage event, because the crater script removes entities itself. Each
+-- hit is printed as an offset from the turret, with the trees in front of the turret.
+-- shotgunclear is the same with every tree within 30 tiles of the turret removed first.
+local function shotgun_probe(clear_trees)
+  return function()
   local items = {}
   for name, proto in pairs(prototypes.item) do
     if string.match(name, "^shotgun%-shell%-%a+%-") then items[#items + 1] = name end
@@ -69,28 +75,53 @@ probes.shotgun = function()
       for i, name in pairs(items) do
         local pos = {x = i * 700, y = 0}
         generate(pos, 2)
+        if clear_trees then
+          for _, t in pairs(surface().find_entities_filtered{type = "tree", position = pos, radius = 30}) do t.destroy() end
+        end
         local turret = surface().create_entity{name = "gun-turret", position = pos, force = "player"}
         local inserted = turret.insert{name = name, count = 10}
         local worm = surface().create_entity{name = "small-worm-turret", position = {pos.x + 14, pos.y}, force = "enemy"}
-        spots[i] = {name = name, pos = pos, turret = turret, worm = worm, inserted = inserted}
-        say("placed", name, "inserted", inserted, "worm", worm and worm.valid)
+        local trees = surface().count_entities_filtered{type = "tree", area = {{pos.x - 1, pos.y - 8}, {pos.x + 16, pos.y + 8}}}
+        local others = {}
+        for _, e in pairs(surface().find_entities_filtered{area = {{pos.x - 1, pos.y - 8}, {pos.x + 16, pos.y + 8}}}) do
+          if e ~= turret and e ~= worm and e.type ~= "tree" then others[#others + 1] = e.type .. ":" .. e.name end
+        end
+        say("in front of", name, #others > 0 and table.concat(others, ",") or "nothing but trees")
+        storage.worm_damage[worm.unit_number] = {total = 0, kinds = {}}
+        spots[i] = {name = name, pos = pos, turret = turret, worm = worm, unit = worm.unit_number, inserted = inserted}
+        say("placed", name, "inserted", inserted, "worm", worm.valid, "trees in front", trees)
       end
     end},
     {900, function()
       local ok = #items > 0
       for i, s in pairs(spots) do
         local left = (s.turret.valid and s.turret.get_item_count(s.name)) or "turret-gone"
-        local hits = 0
+        local wx, offsets, near_worm = s.pos.x + 14, {}, 0
         for _, e in pairs(storage.effects) do
-          if e.position and math.abs(e.position.x - s.pos.x) < 60 and string.match(e.id, "Weapon hit") then hits = hits + 1 end
+          if e.position and math.abs(e.position.x - s.pos.x) < 60 and string.match(e.id, "Weapon hit") then
+            local dx, dy = e.position.x - s.pos.x, e.position.y - s.pos.y
+            offsets[#offsets + 1] = string.format("(%.1f,%.1f)", dx, dy)
+            if math.sqrt((e.position.x - wx) ^ 2 + dy ^ 2) <= 4 then near_worm = near_worm + 1 end
+          end
         end
-        say("shotgun", s.name, "inserted", s.inserted, "left", left, "worm", s.worm.valid and s.worm.health or "dead", "hits", hits)
-        if hits == 0 then ok = false end
+        local d = storage.worm_damage[s.unit]
+        local kinds = {}
+        for k, v in pairs(d.kinds) do kinds[#kinds + 1] = string.format("%s=%.0f", k, v) end
+        table.sort(kinds)
+        say("shotgun", s.name, "inserted", s.inserted, "left", left,
+          "worm", s.worm.valid and string.format("%.0f/%.0f", s.worm.health, s.worm.max_health) or "dead",
+          "damage", string.format("%.0f", d.total), table.concat(kinds, ","),
+          "hits", #offsets, "near worm", near_worm, "offsets from turret", table.concat(offsets, " "))
+        if (d.total == 0 and s.worm.valid) or near_worm == 0 then ok = false end
       end
-      finish(ok, "every generated shotgun item detonated a warhead")
+      finish(ok, "every generated shotgun item damaged or killed its worm with a hit within 4 tiles of it")
     end},
   }
+  end
 end
+
+probes.shotgun = shotgun_probe(false)
+probes.shotgunclear = shotgun_probe(true)
 
 -- A test-site building: insert a warhead, wait for the craft, see the detonation and the research.
 local function test_site_probe(site, recipe, warhead, effect, tech, wait)
@@ -235,6 +266,7 @@ end
 local function start()
   storage.effects = {}
   storage.achievements = {}
+  storage.worm_damage = {}
   local arg = script.test_arg or "graphics"
   say("arg", arg, "tick", game.tick, "players", #game.players, "connected", #game.connected_players,
     "character", game.players[1] and game.players[1].character ~= nil)
@@ -266,6 +298,15 @@ script.on_event(defines.events.on_script_trigger_effect, function(event)
   storage.effects[#storage.effects + 1] = {id = event.effect_id, position = pos, tick = event.tick}
   if event.effect_id ~= "Nuke firing" then say("effect", event.effect_id, pos and (pos.x .. "," .. pos.y) or "") end
 end)
+
+-- Damage to the shotgun probe's worms, summed per worm and per damage type. Worms heal, so their
+-- health at the end does not show it.
+script.on_event(defines.events.on_entity_damaged, function(event)
+  local d = storage.worm_damage and event.entity.unit_number and storage.worm_damage[event.entity.unit_number]
+  if not d then return end
+  d.total = d.total + event.final_damage_amount
+  d.kinds[event.damage_type.name] = (d.kinds[event.damage_type.name] or 0) + event.final_damage_amount
+end, {{filter = "name", name = "small-worm-turret"}})
 
 script.on_event(defines.events.on_achievement_gained, function(event)
   if not storage.achievements then return end
