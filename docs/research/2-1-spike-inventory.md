@@ -281,15 +281,18 @@ does: a headless `--create` with the isolated `--config`. That step never opens 
      mod's.
 
 6. **Set off larger yields** from the console. `/c` turns achievements off for this save, which
-   does not matter here. Each command fires 200 tiles east:
+   does not matter here. Each command generates the map around its target before firing, as the
+   headless probes did, because a target that far out may not exist yet. Expect a short hitch.
+   Run them one at a time, letting each blast settle first. They fire east of the character: the
+   15 kt at 200 tiles, the 100 kt at 600 and the 1 Mt at 1500.
 
    ```lua
-   /c local p = game.player.position game.player.surface.create_entity{name = "warhead-util-projectile-atomic-15kt", position = {p.x + 199, p.y}, target = {p.x + 200, p.y}, speed = 100, max_range = 1, force = "player"}
+   /c local s, p = game.player.surface, game.player.position local t = {x = p.x + 200, y = p.y} s.request_to_generate_chunks(t, 2) s.force_generate_chunk_requests() s.create_entity{name = "warhead-util-projectile-atomic-15kt", position = {t.x - 1, t.y}, target = t, speed = 100, max_range = 1, force = "player"}
+   /c local s, p = game.player.surface, game.player.position local t = {x = p.x + 600, y = p.y} s.request_to_generate_chunks(t, 2) s.force_generate_chunk_requests() s.create_entity{name = "warhead-util-projectile-atomic-2-stage-100kt", position = {t.x - 1, t.y}, target = t, speed = 100, max_range = 1, force = "player"}
+   /c local s, p = game.player.surface, game.player.position local t = {x = p.x + 1500, y = p.y} s.request_to_generate_chunks(t, 2) s.force_generate_chunk_requests() s.create_entity{name = "warhead-util-projectile-atomic-2-stage-1Mt", position = {t.x - 1, t.y}, target = t, speed = 100, max_range = 1, force = "player"}
    ```
 
-   Swap the name for `warhead-util-projectile-atomic-2-stage-100kt` or
-   `warhead-util-projectile-atomic-2-stage-1Mt`, and move the target further away for those. In
-   the headless runs, the 1 Mt crater covered 206686 tiles.
+   In the headless runs, the 1 Mt crater covered 206686 tiles.
 
 7. **Look for:**
    - any error dialog or missing-sprite square at start-up, at the load, or at each blast;
