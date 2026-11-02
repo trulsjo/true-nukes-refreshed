@@ -65,18 +65,18 @@ from a PowerShell profile, and one started from Git Bash can print errors before
   `--test-scenario`, which gives the game a player and runs ticks. It passes on
   `PROBE RESULT PASS`. The probes are `testsite`, `testsite15`, `fusionsite`, `shotgunclear`,
   `big15`, `big2s15`, `big100`, `big1M`, `blastdamage`, `basic`, `fixture`, `fixturesite`,
-  `craters`, `globals`, `savedglobals`, `achieve` and `achievecheat`; the comment above each in
-  `scripts/port-probe/control.lua` says what it does and what it needs to pass. `basic` is the one
-  for startup settings. A hashtable cannot pass through `-File`, so `-Settings` goes through
-  `-Command`, from the repository root:
+  `craters`, `globals`, `savedglobals`, `achieve`, `achievecheat` and `everything`; the comment
+  above each in `scripts/port-probe/control.lua` says what it does and what it needs to pass.
+  `basic` is the one for startup settings. A hashtable cannot pass through `-File`, so `-Settings`
+  goes through `-Command`, from the repository root:
   `pwsh -NoProfile -Command './scripts/port-probe.ps1 -Probe basic -Settings @{ "enable-nuclear-tests" = $false }'`.
-  `fixture` and `fixturesite` load the Continued fixture save in
-  `scripts/port-probe/fixtures/` (see its `README.md`). **`achieve` and `achievecheat` each open a
-  game window for about a minute**, because headless runs never report achievements. Run them
-  alone, with `-TestTicks 60000`: beside another Factorio window they time out without a PROBE
-  line, though the code is fine. They start the game at `video-memory-usage=low`, and still stall
-  beside a window at the default setting. Windowed, `-TestTicks` never reaches the game; it only
-  sets how long the runner waits, `TestTicks / 60 + 300` seconds.
+  `fixture` and `fixturesite` load the Continued fixture save in `scripts/port-probe/fixtures/`
+  (see its `README.md`). **`achieve`, `achievecheat` and `everything` each open a game window for
+  about a minute**, because headless runs never report achievements. Run them alone, with
+  `-TestTicks 60000`: beside another Factorio window they time out without a PROBE line, though the
+  code is fine. They start the game at `video-memory-usage=low`, and still stall beside a window at
+  the default setting. Windowed, `-TestTicks` never reaches the game; it only sets how long the
+  runner waits, `TestTicks / 60 + 300` seconds.
 - **`scripts/freeze-time.ps1`** times a 15 kt blast's freeze on 2.0 with Continued against 2.1 with
   these mods (#25). It needs a 2.0 install and the Continued zips, and **takes hours**: run it only
   to re-measure. Its numbers are on #25, and the slowdown it found is open as #29.
@@ -105,8 +105,9 @@ new decision:
   `data-nukes-warheads-create.lua` beside it, and a straight fix makes the default delete
   `atomic-bomb`, which would vanish from saves silently.
 - **`nuke-self`:** left unchanged. `nukedSelf` (`true-nukes-refreshed/scripts/achievement-system.lua`)
-  is called from `full_fireball` (`true-nukes-refreshed/scripts/fireball-system.lua`), so the spec's
-  "nothing calls it" was wrong. Whether a real blast unlocks it has not been measured.
+  is called from `full_fireball` and `partial_fireball`
+  (`true-nukes-refreshed/scripts/fireball-system.lua`), so the spec's "nothing calls it" was wrong.
+  Whether a real blast unlocks it has not been measured.
 - **Menu simulations** (`true-nukes-refreshed/menu-simulations/`), including the dead
   `enable-menu-backgrounds` setting.
 - **Birdshot** (`shotgun-shell-birdshot` in `warheads-refreshed/prototypes/basegame-weapontype-add.lua`):
