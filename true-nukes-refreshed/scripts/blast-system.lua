@@ -46,6 +46,13 @@ local function fire_damage_entity(surface, entity, force, cause, killPlanes)
   end
 end
 
+-- Every RailPrototype type in Factorio 2.0 and 2.1, legacy and elevated ones included.
+local rail_types = {
+  ["straight-rail"] = true, ["curved-rail-a"] = true, ["curved-rail-b"] = true, ["half-diagonal-rail"] = true,
+  ["legacy-straight-rail"] = true, ["legacy-curved-rail"] = true, ["rail-ramp"] = true,
+  ["elevated-straight-rail"] = true, ["elevated-curved-rail-a"] = true, ["elevated-curved-rail-b"] = true,
+  ["elevated-half-diagonal-rail"] = true
+}
 
 local function damage_entity(surface, distSq, ePos, power, fire, damage_init, blast_min_damage, entity, force, cause, corpseMap,  deathStatsForTrees, deathStatsForOther)
   -- do blast damage - reduced for rails, belts, land mines and flying vehicles, as this makes some sense, and trees in order to leave some alive
@@ -84,16 +91,14 @@ local function damage_entity(surface, distSq, ePos, power, fire, damage_init, bl
     end
     return
   else
-    if(t=="curved-rail") then
-      damage = damage/10
-    elseif (t=="straight-rail") then
+    if(rail_types[t]) then
       damage = damage/10
     elseif (t=="transport-belt") then
       damage = damage/10
     elseif (t=="land-mine") then
       damage = damage/10
     elseif(t=="car" or t=="spider-vehicle") then
-      if (next(entity.prototype.collision_mask)==nil)then
+      if (next(entity.prototype.collision_mask.layers)==nil)then
         damage = damage/2
       end
     end

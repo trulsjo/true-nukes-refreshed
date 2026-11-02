@@ -19,7 +19,7 @@
 
 .PARAMETER Probe
     The probe's name, passed as --test-arg: testsite, testsite15, fusionsite, shotgunclear, big15,
-    big2s15, big100, big1M, basic, fixture, fixturesite.
+    big2s15, big100, big1M, blastdamage, basic, fixture, fixturesite.
 
     fixture and fixturesite load the Continued fixture save (port-probe/fixtures) with --test-save
     instead of a new map, after checking its SHA-256. fixture also needs True Nukes' on_init to log

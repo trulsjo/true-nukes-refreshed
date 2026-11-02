@@ -2,6 +2,9 @@
 -- from --test-arg. Every line it prints starts with PROBE, and the last is PROBE RESULT.
 -- Redone from the 2.1 spike's probe (#12) for #21.
 
+-- The blast module's own exports, driven directly by the blastdamage probe.
+local blast_system = require("__true-nukes-refreshed__/scripts/blast-system")
+
 local function say(...)
   local parts = {}
   for _, v in pairs({...}) do parts[#parts + 1] = tostring(v) end
@@ -250,6 +253,103 @@ probes.fixturesite = function()
       local effects, crater = effects_named("Atomic Weapon hit 20t"), nuclear_tiles()
       say("site valid", building.valid, "effects", effects, "nuclear tiles", crater)
       finish(before == FIXTURE_NUCLEAR_TILES and effects > 0 and crater > before, "detonated and nuclear tiles rose from " .. FIXTURE_NUCLEAR_TILES)
+    end},
+  }
+end
+
+-- Blast damage to rails and flying vehicles (#24), through blast-system.lua's chunk_loaded with a
+-- flat damage D: init_blast 0 and a blast_min_damage of D give every entity D, whatever its
+-- distance. damage_entity then rolls math.random(d/2, 2d) on d = D, D/10 for a rail or D/2 for a
+-- vehicle with no collision layers. With D = 40 an unreduced hit takes 20 to 80 and a rail's 2 to
+-- 8, so one hit tells them apart; a flying vehicle's 10 to 40 overlaps, so vehicles are averaged.
+local RAIL_TYPES = {"straight-rail", "curved-rail-a", "curved-rail-b", "half-diagonal-rail",
+  "legacy-straight-rail", "legacy-curved-rail", "rail-ramp", "elevated-straight-rail",
+  "elevated-curved-rail-a", "elevated-curved-rail-b", "elevated-half-diagonal-rail"}
+
+probes.blastdamage = function()
+  local D, HITS = 40, 40
+  local function chunk_of(pos) return {x = math.floor(pos.x / 32) * 32, y = math.floor(pos.y / 32) * 32} end
+
+  -- Hit an entity alone in its chunk n times, healing it between hits; return each hit's loss.
+  local function losses(entity, n)
+    local c = chunk_of(entity.position)
+    local struct = {fireball_r = 0, init_blast = 0, blast_min_damage = D}
+    local area = {area = {{c.x, c.y}, {c.x + 32, c.y + 32}}}
+    local out = {}
+    for i = 1, n do
+      entity.health = entity.max_health
+      blast_system.chunk_loaded(struct, surface().index, {x = c.x - 64, y = c.y - 64}, area, c.x, c.y, true, 1e12,
+        "player", nil, {})
+      out[i] = entity.max_health - entity.health
+    end
+    return out
+  end
+
+  local function spot(i)
+    local pos = {x = i * 64 + 16, y = 1000 + 16}
+    generate(pos, 1)
+    local c = chunk_of(pos)
+    for _, e in pairs(surface().find_entities({{c.x, c.y}, {c.x + 32, c.y + 32}})) do
+      if e.type ~= "character" then e.destroy() end
+    end
+    return pos
+  end
+
+  return {
+    {1, function()
+      local ok, i = true, 0
+      -- Every entity type the game knows with "rail" in it, to show the list covers them.
+      local seen = {}
+      for _, p in pairs(prototypes.entity) do
+        if string.match(p.type, "rail") then seen[p.type] = (seen[p.type] or 0) + 1 end
+      end
+      local seen_list = {}
+      for t, n in pairs(seen) do seen_list[#seen_list + 1] = t .. "=" .. n end
+      table.sort(seen_list)
+      say("rail-like types present", table.concat(seen_list, " "))
+
+      local tested = 0
+      for _, t in pairs(RAIL_TYPES) do
+        local names = {}
+        for name, p in pairs(prototypes.entity) do if p.type == t then names[#names + 1] = name end end
+        table.sort(names)
+        if #names == 0 then say("rail", t, "no prototype in this game") end
+        for _, name in pairs(names) do
+          i = i + 1
+          -- Without Space Age the elevated rails and the ramp are dummy-* prototypes the game refuses
+          -- to place; they are reported, not counted.
+          local created, e = pcall(surface().create_entity, {name = name, position = spot(i), force = "player"})
+          if not (created and e and e.valid) then
+            say("rail", t, name, "cannot be placed", string.match(name, "^dummy%-") and "(dummy)" or "NOT A DUMMY")
+            if not string.match(name, "^dummy%-") then ok = false end
+          else
+            local l = losses(e, 10)
+            local max = math.max(table.unpack(l))
+            local reduced = max <= D / 5
+            say("rail", t, name, "health", e.max_health, "losses", table.concat(l, ","), reduced and "reduced" or "FULL")
+            if not reduced then ok = false end
+            tested = tested + 1
+          end
+        end
+      end
+      if tested == 0 then ok = false end
+
+      local mean = {}
+      for _, name in pairs({"tn-probe-car", "tn-probe-flying-car"}) do
+        i = i + 1
+        local e = surface().create_entity{name = name, position = spot(i), force = "player"}
+        local l = losses(e, HITS)
+        local sum = 0
+        for _, v in pairs(l) do sum = sum + v end
+        mean[name] = sum / HITS
+        say("vehicle", name, "layers", table_size(e.prototype.collision_mask.layers),
+          "mean loss", string.format("%.1f", mean[name]), "over", HITS, "hits")
+      end
+      -- Unreduced mean is 1.25 D = 50 and halved 0.625 D = 25; split at 37.5.
+      local split = 0.9375 * D
+      if not (mean["tn-probe-car"] > split and mean["tn-probe-flying-car"] < split) then ok = false end
+
+      finish(ok, "every rail type takes a tenth of the blast; a vehicle with no collision layers takes half, an ordinary one all")
     end},
   }
 end
