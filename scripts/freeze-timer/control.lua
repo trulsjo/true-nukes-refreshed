@@ -4,13 +4,16 @@
 -- Runs on 2.0 and 2.1, with True Nukes Continued or Refreshed: both name the util projectile alike.
 
 local PROJECTILE = "warhead-util-projectile-atomic-15kt"
+-- FIRST, EVERY, COUNT and AFTER are logged on the start line, and scripts/freeze-time.ps1 reads them
+-- from there, so they are set here only.
 local FIRST = 900       -- tick of the first blast, counted from the timer's first tick
 local EVERY = 1800      -- ticks between blasts
 local COUNT = 4
 local SPACING = 3000    -- tiles between blast sites, so each lands on untouched ground
 local CAMERA = 50       -- tiles from the camera to the blast
 local PREP = 600        -- ticks before a blast that its ground is generated and the camera moved
--- The mod force-generates 1000 tiles around a 15 kt hit (atomic_weapon_hit's load_r), which
+-- The mod force-generates 1000 tiles around a 15 kt hit (load_r in atomic_weapon_hit,
+-- true-nukes-refreshed/control.lua), which
 -- headless took 13 s of the blast tick. Generating that first keeps map generation out of the timing.
 local PREP_CHUNKS = 33
 -- Logged ticks around each blast. AFTER stops short of the next site's generation at +1200.
@@ -55,7 +58,8 @@ local function setup()
   storage.blasts = {}
   for i = 1, COUNT do storage.blasts[i] = FIRST + (i - 1) * EVERY end
   out("start tick " .. game.tick .. " projectile " .. tostring(prototypes.entity[PROJECTILE] ~= nil)
-    .. " players " .. #game.players .. " version " .. script.active_mods.base)
+    .. " players " .. #game.players .. " version " .. script.active_mods.base
+    .. " first " .. FIRST .. " every " .. EVERY .. " count " .. COUNT .. " after " .. AFTER)
 end
 
 script.on_event(defines.events.on_tick, function(event)

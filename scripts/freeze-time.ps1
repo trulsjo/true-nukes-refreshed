@@ -11,7 +11,9 @@
 
     The table gives, per version and blast, the lower median and range over sessions of: the blast
     tick, the longest run of ticks over 50 ms that starts the freeze, and the time lost against
-    60 UPS over the 1150 ticks after the blast. Exit 0 means every session ran and every blast fired.
+    60 UPS over the ticks logged after the blast. Exit 0 means every session ran and every blast
+    fired. The blast ticks, the blast count and the ticks logged after each blast are the timer's
+    FIRST, EVERY, COUNT and AFTER, read from its start line in the log.
 
     What it cannot see: a blast where the ground is not yet generated (the mod then generates it in
     the blast tick, which is slower); a projectile fired from a weapon, which starts that generation
@@ -85,23 +87,23 @@ function Invoke-Session([string] $Version, [string[]] $Arguments, [switch] $Crea
     } else {
         @('true-nukes-refreshed', 'warheads-refreshed') | ForEach-Object { Join-Path $root $_ }
     }
-    $h = New-LoadHarness -Mods (@($mods) + $timer) -FactorioExe $exe[$Version]
+    $harness = New-LoadHarness -Mods (@($mods) + $timer) -FactorioExe $exe[$Version]
     try {
         # The save is base only: its mods are added when each session loads it.
-        $off = if ($Create) { @($h.Mods.Name) } else { @() }
-        Write-HarnessModList -Harness $h -Disabled $off
-        $r = Invoke-Factorio -FactorioExe $exe[$Version] -ModDirectory $h.ModDirectory -Arguments $Arguments `
-            -OutputDirectory $h.Temp -Tag run
-        $err = Get-FactorioErrorText -Result $r
-        if ($r.Code -ne 0 -or $err) { throw "Factorio $Version exited $($r.Code): $($err | Select-Object -First 10 | Out-String)" }
+        $disabled = if ($Create) { @($harness.Mods.Name) } else { @() }
+        Write-HarnessModList -Harness $harness -Disabled $disabled
+        $result = Invoke-Factorio -FactorioExe $exe[$Version] -ModDirectory $harness.ModDirectory -Arguments $Arguments `
+            -OutputDirectory $harness.Temp -Tag run
+        $err = Get-FactorioErrorText -Result $result
+        if ($result.Code -ne 0 -or $err) { throw "Factorio $Version exited $($result.Code): $($err | Select-Object -First 10 | Out-String)" }
         if ($Tag) {
             $log = Join-Path $LogDirectory "$Tag.log"
-            Copy-Item (Join-Path $h.Temp 'write-data/factorio-current.log') $log
+            Copy-Item (Join-Path $harness.Temp 'write-data/factorio-current.log') $log
             $log
         }
     }
     finally {
-        Remove-LoadHarness -Harness $h
+        Remove-LoadHarness -Harness $harness
         Remove-Item (Split-Path $timer -Parent) -Recurse -Force
     }
 }
@@ -121,33 +123,38 @@ foreach ($n in 1..$Sessions) {
         Write-Host "$v $Mode session $n"
         $log = Invoke-Session -Version $v -Arguments $run -Tag "$v-$Mode-$n"
         $lines = Get-Content $log
+        # The timer's FIRST, EVERY, COUNT and AFTER, from its start line (freeze-timer/control.lua).
+        if (-not ((@($lines -match 'FREEZE start ') -join "`n") -match 'first (\d+) every (\d+) count (\d+) after (\d+)')) {
+            throw "No FREEZE start line with the timer's constants in $log"
+        }
+        $first, $every, $count, $after = [int]$Matches[1], [int]$Matches[2], [int]$Matches[3], [int]$Matches[4]
         $fired = @($lines -match 'FREEZE fired \d+ at tick \d+ created').Count
-        if ($fired -ne 4) { Write-Host "  only $fired of 4 blasts fired"; $ok = $false }
+        if ($fired -ne $count) { Write-Host "  only $fired of $count blasts fired"; $ok = $false }
         $rows = foreach ($l in $lines) {
             if ($l -match 'FREEZE dt (\d+) (?:Duration|Elapsed): ([\d.]+) ?ms') { [pscustomobject]@{ t = [int]$Matches[1]; ms = [double]$Matches[2] } }
         }
-        foreach ($i in 1..4) {
-            $b = 900 + ($i - 1) * 1800
-            $post = @($rows | Where-Object { $_.t -ge $b -and $_.t -le $b + 1150 })
-            $tick = @($post | Where-Object t -eq ($b + 1) | ForEach-Object ms)[0]
+        foreach ($i in 1..$count) {
+            $blastTick = $first + ($i - 1) * $every
+            $post = @($rows | Where-Object { $_.t -ge $blastTick -and $_.t -le $blastTick + $after })
+            $tick = @($post | Where-Object t -eq ($blastTick + 1) | ForEach-Object ms)[0]
             $stall = 0
-            foreach ($q in $post) { if ($q.ms -gt 50) { $stall += $q.ms } elseif ($q.t -gt $b + 1) { break } }
+            foreach ($row in $post) { if ($row.ms -gt 50) { $stall += $row.ms } elseif ($row.t -gt $blastTick + 1) { break } }
             $lost = ($post | ForEach-Object { [math]::Max(0, $_.ms - 1000 / 60) } | Measure-Object -Sum).Sum
             if (-not $results[$v].ContainsKey($i)) { $results[$v][$i] = @{ tick = @(); stall = @(); lost = @() } }
             $results[$v][$i].tick += $tick / 1000; $results[$v][$i].stall += $stall / 1000; $results[$v][$i].lost += $lost / 1000
         }
-        ($lines -match 'FREEZE counts \d+ at 1160') | ForEach-Object { Write-Host "  $($_ -replace '^.*FREEZE ', '')" }
+        ($lines -match "FREEZE counts \d+ at $($after + 10) ") | ForEach-Object { Write-Host "  $($_ -replace '^.*FREEZE ', '')" }
     }
 }
 
 function Stats($xs) { $s = @($xs | Sort-Object); '{0:N1} ({1:N1}-{2:N1})' -f $s[[int][math]::Floor(($s.Count - 1) / 2)], $s[0], $s[-1] }
 Write-Host ''
-Write-Host "| Version | Blast | Sessions | Blast tick, s | Freeze, s | Lost vs 60 UPS over 19 s, s |"
+Write-Host "| Version | Blast | Sessions | Blast tick, s | Freeze, s | Lost vs 60 UPS over $([math]::Round($after / 60)) s, s |"
 Write-Host '|---|---|---|---|---|---|'
 foreach ($v in '2.0', '2.1') {
-    foreach ($i in 1..4) {
-        $r = $results[$v][$i]
-        Write-Host ('| {0} | {1} | {2} | {3} | {4} | {5} |' -f $v, $i, $r.tick.Count, (Stats $r.tick), (Stats $r.stall), (Stats $r.lost))
+    foreach ($i in 1..$count) {
+        $blast = $results[$v][$i]
+        Write-Host ('| {0} | {1} | {2} | {3} | {4} | {5} |' -f $v, $i, $blast.tick.Count, (Stats $blast.tick), (Stats $blast.stall), (Stats $blast.lost))
     }
 }
 Write-Host "logs: $LogDirectory"
