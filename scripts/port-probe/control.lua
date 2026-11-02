@@ -2,10 +2,17 @@
 -- from --test-arg. Every line it prints starts with PROBE, and the last is PROBE RESULT.
 -- Redone from the 2.1 spike's probe (#12) for #21.
 
+-- port-probe.ps1 writes windowed.lua into the achieve run's copy of this mod; no other run has it.
+local windowed = pcall(require, "windowed")
+
 local function say(...)
   local parts = {}
   for _, v in pairs({...}) do parts[#parts + 1] = tostring(v) end
-  print("PROBE " .. table.concat(parts, " "))
+  local line = "PROBE " .. table.concat(parts, " ")
+  print(line)
+  -- A windowed game buffers stdout, and the runner kills it, so the tail of stdout is lost. The
+  -- runner reads this file in script-output instead.
+  if windowed then helpers.write_file("probe.txt", line .. "\n", true) end
 end
 
 local function surface() return game.surfaces[1] end
@@ -271,10 +278,91 @@ probes.basic = function()
   }
 end
 
+-- Achievements, in a real windowed game, because headless runs never report them. port-probe.ps1
+-- creates a new save, so no /c ever ran, loads it with --load-game and stops the game once PROBE
+-- RESULT is printed: script.finish_test does nothing outside a test run. The probe's own unlock of
+-- nuke-self shows that achievement events arrive at all, and detonate-1Gt, unlocked from
+-- on_pre_player_died below, that they arrive from a death. The test site is 600 tiles away so the
+-- 20 t blast cannot kill the character first.
+local wanted_achievements = {"nuke-self", "shoot-fusion", "test-20t", "detonate-1Gt", "lose-nuke"}
+
+probes.achieve = function()
+  local site
+  return {
+    {1, function()
+      local p = player()
+      say("cheat_mode", p.cheat_mode, "controller", p.controller_type)
+      p.unlock_achievement("nuke-self")
+      generate({x = 0, y = -60}, 2)
+      local fusion = surface().create_entity{name = "fusion-test-site", position = {0, -60}, force = "player"}
+      say("fusion-test-site", fusion and fusion.valid, "damage", fusion and fusion.damage(10, "player", "physical"))
+      research_prerequisites("atomic-bomb")
+      generate({x = 0, y = -600}, 3)
+      site = surface().create_entity{name = "nuclear-test-site", position = {0, -600}, force = "player", raise_built = true}
+      say("nuclear-test-site", site and site.valid, "inserted", site.insert{name = "TN-warhead-20--1", count = 1})
+    end},
+    {1900, function()
+      local p = player()
+      say("inserted in player", p.insert{name = "TN-warhead-20--1", count = 1})
+      say("killing character", p.character and p.character.valid)
+      p.character.die()
+    end},
+    {2100, function()
+      local missing = {}
+      for _, name in pairs(wanted_achievements) do
+        if not storage.achievements[name] then missing[#missing + 1] = name end
+      end
+      say("effects 20t", effects_named("Atomic Weapon hit 20t"), "missing", table.concat(missing, ","))
+      finish(#missing == 0, "every wanted achievement was gained: " .. table.concat(wanted_achievements, ","))
+    end},
+  }
+end
+
+script.on_init(function()
+  if windowed and remote.interfaces["freeplay"] then
+    -- The crash-site intro takes the character away for a cutscene.
+    remote.call("freeplay", "set_disable_crashsite", true)
+    remote.call("freeplay", "set_skip_intro", true)
+  end
+end)
+
+script.on_event(defines.events.on_player_joined_game, function(event)
+  if windowed and not storage.joined then
+    storage.joined = event.tick
+    say("joined", event.tick)
+  end
+end)
+
+-- In single player the death ends the game (game.finished is true here) and the game stops ticking
+-- until someone clicks Continue, so on_achievement_gained, which arrives a tick after the unlock,
+-- would never come. Clearing the state here keeps the game running.
+-- The inventory True Nukes' own on_pre_player_died handler sees, and a second control: an unlock
+-- made in this same event, which shows that unlocks made at death arrive.
+script.on_event(defines.events.on_pre_player_died, function(event)
+  local p = game.players[event.player_index]
+  local inv = p.get_main_inventory()
+  local parts = {}
+  for _, item in pairs(inv and inv.get_contents() or {}) do parts[#parts + 1] = item.name .. "x" .. item.count end
+  say("pre_player_died", "main inventory", inv and #inv, table.concat(parts, ","))
+  if windowed then p.unlock_achievement("detonate-1Gt") end
+end)
+
+script.on_event(defines.events.on_player_died, function(event)
+  say("died", "tick", event.tick, "finished", game.finished)
+  if windowed then game.set_game_state{game_finished = false, can_continue = true} end
+end)
+
+script.on_event(defines.events.on_achievement_gained, function(event)
+  storage.achievements = storage.achievements or {}
+  storage.achievements[event.achievement.name] = true
+  say("achievement", event.achievement.name, "tick", event.tick)
+end)
+
 local function start()
   storage.effects = {}
   storage.worm_damage = {}
-  local arg = script.test_arg
+  storage.achievements = storage.achievements or {}
+  local arg = windowed and "achieve" or script.test_arg
   say("arg", arg, "tick", game.tick, "players", #game.players)
   local probe = arg and probes[arg]
   if not probe then
@@ -290,6 +378,9 @@ end
 local steps
 
 script.on_event(defines.events.on_tick, function(event)
+  -- Windowed, wait 300 ticks after the player joins: unlocks on the first tick after joining had
+  -- no effect when the method was tried (#16).
+  if windowed and not (storage.joined and event.tick >= storage.joined + 300) then return end
   if not storage.effects then start() steps = storage.steps storage.steps = nil end
   if not steps then return end
   local t = event.tick - storage.start

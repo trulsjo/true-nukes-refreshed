@@ -17,9 +17,15 @@
     The port was proved with these probes on Factorio 2.1.24, which added --test-scenario. Set
     $env:FACTORIO_EXE to that build.
 
+    achieve is the exception: achievements need a real game, so it creates a new save in the
+    harness's write-data directory and loads it in a window, which stays open on the machine for
+    about a minute while the game loads its graphics and runs. The runner closes the window once
+    the probe has printed its result; the probe also writes its lines to script-output/probe.txt,
+    because the game buffers stdout.
+
 .PARAMETER Probe
     The probe's name, passed as --test-arg: testsite, testsite15, fusionsite, shotgunclear, big15,
-    big2s15, big100, big1M, basic.
+    big2s15, big100, big1M, basic, craters, globals; or achieve, which runs windowed.
 
 .PARAMETER Settings
     Startup and runtime-global settings to change, as name = value. The probe mod's
@@ -63,22 +69,64 @@ $lines = foreach ($k in $Settings.Keys) {
 }
 ($lines -join "`n") | Set-Content (Join-Path $probeCopy 'tn-port-probe/settings-final-fixes.lua')
 
+$windowed = $Probe -eq 'achieve'
+if ($windowed) { 'return true' | Set-Content (Join-Path $probeCopy 'tn-port-probe/windowed.lua') }
+
 $mods = @('true-nukes-refreshed', 'warheads-refreshed', 'true-nukes-graphics-refreshed' |
     ForEach-Object { Join-Path $root $_ }) + (Join-Path $probeCopy 'tn-port-probe')
 $h = New-LoadHarness -Mods $mods
 $code = 1
 try {
     Write-HarnessModList -Harness $h
-    $result = Invoke-Factorio -FactorioExe $h.FactorioExe -ModDirectory $h.ModDirectory `
-        -Arguments @('--test-scenario', 'tn-port-probe/p', '--test-arg', $Probe, '--test-ticks', "$TestTicks") `
-        -OutputDirectory $h.Temp -Tag $Probe
-    $out = Get-Content $result.OutFile
-    $out | Where-Object { $_ -match '^PROBE ' } | ForEach-Object { Write-Host $_ }
-    $err = Get-FactorioErrorText -Result $result
-    if ($err) { Write-Host '--- error ---'; $err | Select-Object -First 30 | ForEach-Object { Write-Host $_ } }
-    $passed = $out -match '^PROBE RESULT PASS'
-    Write-Host "exit $($result.Code), $(if ($passed) { 'PASS' } else { 'no PASS line' })"
-    if ($result.Code -eq 0 -and $passed) { $code = 0 }
+    if ($windowed) {
+        # Headless runs never report achievements, so this one is a real game. --create makes a
+        # new save that no /c has touched, in the harness's own write-data directory, and the game
+        # loads it in a window. It never exits by itself: script.finish_test works only in a test
+        # run, so the window is closed once PROBE RESULT is printed.
+        $save = Join-Path $h.Temp 'achieve.zip'
+        $created = Invoke-Factorio -FactorioExe $h.FactorioExe -ModDirectory $h.ModDirectory `
+            -Arguments @('--create', $save) -OutputDirectory $h.Temp -Tag 'create'
+        if ($created.Code -ne 0 -or -not (Test-Path $save)) {
+            Get-FactorioErrorText -Result $created | Select-Object -First 30 | ForEach-Object { Write-Host $_ }
+            throw "--create failed with exit $($created.Code)"
+        }
+        $outFile = Join-Path $h.Temp 'achieve-stdout.txt'
+        $line = (@('--config', (Join-Path $h.Temp 'factorio-config.ini'), '--mod-directory', $h.ModDirectory,
+                '--load-game', $save, '--disable-audio', '--window-size', '1280x720', '--disable-migration-window') |
+            ForEach-Object { ConvertTo-NativeArgument $_ }) -join ' '
+        $proc = Start-Process -FilePath $h.FactorioExe -ArgumentList $line -PassThru -NoNewWindow `
+            -RedirectStandardOutput $outFile -RedirectStandardError (Join-Path $h.Temp 'achieve-stderr.txt')
+        # The game buffers stdout, so the probe's lines are read from the file it also writes.
+        $probeFile = Join-Path $h.Temp 'write-data/script-output/probe.txt'
+        $deadline = (Get-Date).AddSeconds($TestTicks / 60 + 300)
+        $out = @()
+        while (-not $proc.HasExited -and (Get-Date) -lt $deadline) {
+            Start-Sleep -Seconds 2
+            $out = @(Get-Content $probeFile -ErrorAction SilentlyContinue)
+            if ($out -match '^PROBE RESULT ') { break }
+        }
+        $exited = $proc.HasExited
+        if (-not $exited) { Stop-Process -Id $proc.Id -Force; $proc.WaitForExit() }
+        $out = @(Get-Content $probeFile -ErrorAction SilentlyContinue)
+        $out | ForEach-Object { Write-Host $_ }
+        Get-Content (Join-Path $h.Temp 'write-data/factorio-current.log') -ErrorAction SilentlyContinue |
+            Where-Object { $_ -match 'Error' } | Select-Object -First 30 | ForEach-Object { Write-Host $_ }
+        $passed = $out -match '^PROBE RESULT PASS'
+        Write-Host "$(if ($exited) { "game exited by itself with $($proc.ExitCode)" } else { 'game closed by the runner' }), $(if ($passed) { 'PASS' } else { 'no PASS line' })"
+        if ($passed -and -not $exited) { $code = 0 }
+    }
+    else {
+        $result = Invoke-Factorio -FactorioExe $h.FactorioExe -ModDirectory $h.ModDirectory `
+            -Arguments @('--test-scenario', 'tn-port-probe/p', '--test-arg', $Probe, '--test-ticks', "$TestTicks") `
+            -OutputDirectory $h.Temp -Tag $Probe
+        $out = Get-Content $result.OutFile
+        $out | Where-Object { $_ -match '^PROBE ' } | ForEach-Object { Write-Host $_ }
+        $err = Get-FactorioErrorText -Result $result
+        if ($err) { Write-Host '--- error ---'; $err | Select-Object -First 30 | ForEach-Object { Write-Host $_ } }
+        $passed = $out -match '^PROBE RESULT PASS'
+        Write-Host "exit $($result.Code), $(if ($passed) { 'PASS' } else { 'no PASS line' })"
+        if ($result.Code -eq 0 -and $passed) { $code = 0 }
+    }
 }
 finally {
     Remove-LoadHarness -Harness $h -Keep:$KeepTemp
