@@ -61,8 +61,10 @@ from a PowerShell profile, and one started from Git Bash can print errors before
   `-Command`, from the repository root:
   `pwsh -NoProfile -Command './scripts/port-probe.ps1 -Probe basic -Settings @{ "enable-nuclear-tests" = $false }'`.
   `fixture` and `fixturesite` load the Continued fixture save in
-  `scripts/port-probe/fixtures/` (see its `README.md`). **`achieve` and `achievecheat` each open a game
-  window for about a minute**, because headless runs never report achievements.
+  `scripts/port-probe/fixtures/` (see its `README.md`). **`achieve` and `achievecheat` each open a
+  game window for about a minute**, because headless runs never report achievements. Run them
+  alone, with `-TestTicks 60000`: beside another Factorio window they time out without a PROBE
+  line, though the code is fine.
 - **`scripts/freeze-time.ps1`** times a 15 kt blast's freeze on 2.0 with Continued against 2.1 with
   these mods (#25). It needs a 2.0 install and the Continued zips, and **takes hours**: run it only
   to re-measure. Its numbers are on #25, and the slowdown it found is open as #29.
