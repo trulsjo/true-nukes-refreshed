@@ -13,7 +13,7 @@ Date: 2026-11-02
     - Fixed the clearAllCraters command failing on an unknown tile.
     - Fixed getGlobal and setGlobal in the remote interface, which used the 1.1 global table.
   Info:
-    - A True Nukes Continued save keeps its items, entities and research, and test sites already built keep working. Blasts still running, crater healing and the count of nuclear tests are lost.
+    - A True Nukes Continued save keeps its items, entities and research, and test sites already built keep working. Blasts still running and crater healing are lost, and ground explored later next to a crater of 100 kt or more generates untouched.
     - Based on True Nukes by BicycleEater and True Nukes Continued by Daimonfire.
 ---------------------------------------------------------------------------------------------------
 Version: 0.3.36

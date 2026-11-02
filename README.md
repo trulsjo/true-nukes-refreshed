@@ -10,8 +10,8 @@ This repository ports True Nukes to **Factorio 2.1**, base game. It holds three 
 
 They are the mods of [True Nukes Continued](https://github.com/Daimonfire1/Factorio-True-Nukes_Continued)
 under new names, and they cannot run beside the Continued mods. A Continued save keeps its world
-(items, entities and research), but not blasts still running, crater healing or the count of
-nuclear tests. Space Age and the optional mod integrations are not tested.
+(items, entities and research), but not blasts still running or crater healing, and ground
+explored later next to a crater of 100 kt or more generates untouched. Space Age and the optional mod integrations are not tested.
 
 ## Credits
 

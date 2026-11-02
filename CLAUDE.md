@@ -26,8 +26,13 @@ Until #19 they were `True-Nukes_Continued_0.3.36/`, `Warheads_Continued_0.0.21/`
 All three declare `"factorio_version": "2.1"` and are incompatible (`!`) with the three Continued
 mods. The 2.1 data-stage breaks found by the spike (#12) are fixed (#20, #21), and so are the
 runtime bugs chosen in #17 (#23, #24). A Continued save keeps its world: items, entities and
-research, and `on_init` finds the test sites already built (#22). Blasts still running, crater
-healing and `nuclearTests` counts are lost, as #8 accepted.
+research, and `on_init` finds the test sites already built (#22). Blasts still running and crater
+healing are lost, as #8 accepted. So is `optimisedNukes`, the record a blast of 100 kt or more
+keeps so that `on_chunk_generated` (`true-nukes-refreshed/control.lua`) carves its crater into
+chunks generated later: ground first explored after the port, next to such a crater, generates
+untouched. #8 did not cover that loss; the review of #28 found it. `nuclearTests` holds nothing
+to lose: the code in `testDetonation` (`true-nukes-refreshed/scripts/nuclear-test-system.lua`)
+that would fill it is commented out, in Continued too.
 
 **Still open:** playing the port by hand (#27); the two replacement sounds, unheard (#5, #6); and
 why the game runs slower after a 15 kt blast on 2.1 than on 2.0 (#29). A 15 kt blast is playable,
