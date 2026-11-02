@@ -284,7 +284,10 @@ end
 -- blast_min_damage of D give every entity D, whatever its distance. damage_entity then rolls
 -- math.random(d/2, 2d) on d = D, D/10 for a rail or D/2 for a vehicle with no collision layers.
 -- With D = 40 an unreduced hit takes 20 to 80 and a rail's 2 to 8, so one hit tells them apart; a
--- flying vehicle's 10 to 40 overlaps, so vehicles are averaged.
+-- flying vehicle's 10 to 40 overlaps, so vehicles are averaged. Then a stone wall at half health
+-- (#37): its explosion resistance must be a flat 10 and 30%; hits rolled below 10 must leave its
+-- health unchanged rather than heal it; hits rolled at r from 20 to 80 must each lose
+-- (r - 10) * 0.7; and the wall must still stand after both.
 local RAIL_TYPES = {"straight-rail", "curved-rail-a", "curved-rail-b", "half-diagonal-rail",
   "legacy-straight-rail", "legacy-curved-rail", "rail-ramp", "elevated-straight-rail",
   "elevated-curved-rail-a", "elevated-curved-rail-b", "elevated-half-diagonal-rail"}
@@ -298,17 +301,21 @@ probes.blastdamage = function()
   local D, HITS = 40, 40
   local function chunk_of(pos) return {x = math.floor(pos.x / 32) * 32, y = math.floor(pos.y / 32) * 32} end
 
-  -- Hit an entity alone in its chunk n times, healing it between hits; return each hit's loss.
-  local function losses(entity, n)
+  -- Hit an entity alone in its chunk n times with a flat damage d (default D), setting its health
+  -- to start_health (default max_health) before each hit; return each hit's loss. Stops early if a
+  -- hit destroys the entity, so the caller can check entity.valid.
+  local function losses(entity, n, d, start_health)
     local c = chunk_of(entity.position)
-    local struct = {fireball_r = 0, init_blast = 0, blast_min_damage = D}
+    local struct = {fireball_r = 0, init_blast = 0, blast_min_damage = d or D}
     local area = {area = {{c.x, c.y}, {c.x + 32, c.y + 32}}}
+    start_health = start_health or entity.max_health
     local out = {}
     for i = 1, n do
-      entity.health = entity.max_health
+      entity.health = start_health
       blast_system.chunk_loaded(struct, surface().index, {x = c.x - 64, y = c.y - 64}, area, c.x, c.y, true, 1e12,
         "player", nil, {})
-      out[i] = entity.max_health - entity.health
+      if not entity.valid then break end
+      out[i] = start_health - entity.health
     end
     return out
   end
@@ -387,7 +394,58 @@ probes.blastdamage = function()
       local split = 0.9375 * D
       if not (mean["tn-probe-car"] > split and mean["tn-probe-flying-car"] < split) then ok = false end
 
-      finish(ok, "every rail-like type is listed, every rail type takes a tenth of the blast; a vehicle with no collision layers takes half, an ordinary one all")
+      -- A stone wall's explosion resistance is a flat 10 and 30% (2.1.24), so a hit rolled at r
+      -- takes (r - 10) * 0.7, and one at or below 10 nothing (#37). The wall starts damaged so that
+      -- a hit that healed it would show: health above max_health is clamped.
+      i = i + 1
+      local wall = surface().create_entity{name = "stone-wall", position = spot(i), force = "player"}
+      local wall_res = wall.prototype.resistances.explosion
+      -- The hits below and the pass message assume a flat 10 and 30%. The percent is a single float.
+      local res_ok = wall_res.decrease == 10 and math.abs(wall_res.percent - 0.3) < 1e-6
+      say("wall explosion resistance decrease", wall_res.decrease, "percent", wall_res.percent,
+        res_ok and "as expected" or "NOT 10 AND 30%")
+      if not res_ok then ok = false end
+      local start_health = wall.max_health / 2
+      -- Report whether the wall still stands after a set of hits. If it does not, losses stopped early.
+      local function standing(after)
+        say("wall valid after " .. after .. " hits", wall.valid)
+        return wall.valid
+      end
+      -- damage_entity rolls math.random(d / 2, d * 2) on a flat damage d. WEAK rolls entirely below
+      -- the flat 10, STRONG entirely above it.
+      local function roll_range(d) return d / 2, d * 2 end
+      local WEAK, STRONG = 4, 40
+      local weak_lo, weak_hi = roll_range(WEAK)
+      local weak = losses(wall, HITS, WEAK, start_health)
+      local weak_ok = true
+      for _, v in pairs(weak) do if v ~= 0 then weak_ok = false end end
+      say("wall weak hits (rolls " .. weak_lo .. "-" .. weak_hi .. ") losses", table.concat(weak, ","),
+        weak_ok and "unchanged" or "CHANGED")
+      if not weak_ok then ok = false end
+      -- A hit at or below the flat resistance must not destroy the wall either.
+      if not standing("weak") then
+        return finish(false, "a stone wall was destroyed by hits below its flat explosion resistance")
+      end
+      -- Each strong loss must be (r - 10) * 0.7 for a whole r in STRONG's roll range.
+      local lo, hi = roll_range(STRONG)
+      local strong = losses(wall, HITS, STRONG, start_health)
+      local strong_ok, shown = true, {}
+      for k, v in pairs(strong) do
+        local r = v / (1 - wall_res.percent) + wall_res.decrease
+        -- Health and the resistance are single floats, so r is whole only to about 1e-5.
+        local whole = math.abs(r - math.floor(r + 0.5)) < 1e-3
+        if not (whole and r >= lo - 1e-3 and r <= hi + 1e-3) then strong_ok = false end
+        shown[k] = string.format("%.1f", v)
+      end
+      say("wall strong hits (rolls " .. lo .. "-" .. hi .. ") losses", table.concat(shown, ","),
+        strong_ok and "as expected" or "WRONG")
+      if not strong_ok then ok = false end
+      -- No strong hit can take the wall from half health to nothing.
+      if not standing("strong") then
+        return finish(false, "a stone wall was destroyed by hits it should have survived")
+      end
+
+      finish(ok, "every rail-like type is listed, every rail type takes a tenth of the blast; a vehicle with no collision layers takes half, an ordinary one all; a stone wall loses nothing to a hit below its flat resistance and (r - 10) * 0.7 to one above")
     end},
   }
 end
