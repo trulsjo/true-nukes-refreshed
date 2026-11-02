@@ -5,40 +5,94 @@ what the mod does; this file is how to work in the repo.
 
 ## State
 
-**Just started (2026-10-31).** This repository is a GitHub fork of
+**Ported to Factorio 2.1.24, base game (2026-11-02), not yet played by hand.** This repository is
+a GitHub fork of
 [True Nukes Continued](https://github.com/Daimonfire1/Factorio-True-Nukes_Continued) (Daimonfire),
 which is a mostly complete port to Factorio 2.0 of the original
 [True Nukes](https://github.com/More-Wrong/Factorio-True-Nukes) (BicycleEater / More-Wrong, last
-released for 1.1). Nothing of this project's own is committed yet: `main` is the Continued
-history, last commit `80d32eb` (2026-01-17).
+released for 1.1). `main` is the Continued history up to `80d32eb` (2026-01-17); the port is
+built on `port/2-1` from the spec in #18, one branch per ticket.
 
-The tree holds three mods, each in a directory named `<name>_<version>`, as the Continued repo
-ships them:
+The tree holds three mods, each in a directory named exactly as its `info.json` `name` (#8):
 
-- `True-Nukes_Continued_0.3.36/` — the mod itself (`control.lua`, `data*.lua`, `prototypes/`,
+- `true-nukes-refreshed/` (0.3.37) — the mod itself (`control.lua`, `data*.lua`, `prototypes/`,
   `scripts/`, `compatibility/`, `migrations/`, `menu-simulations/`, locales `en` and `de`).
-- `Warheads_Continued_0.0.21/` — the shared warhead layer True Nukes depends on.
-- `True-Nukes-Graphics_Continued_0.0.3/` — optional large explosion graphics.
+- `warheads-refreshed/` (0.0.22) — the shared warhead layer True Nukes depends on.
+- `true-nukes-graphics-refreshed/` (0.0.4) — optional large explosion graphics.
 
-All three declare `"factorio_version": "2.0"`, so **Factorio 2.1 refuses them** ("Incompatible
-Factorio version", 2.1.24, 2026-10-31, base game only). On throwaway copies declaring 2.1, the load
-stops in `Warheads_Continued`'s data stage: `prototypes/weapontype-sanitise.lua` finds no
-`projectile` field on an item. What breaks after that is unknown.
+Until #19 they were `True-Nukes_Continued_0.3.36/`, `Warheads_Continued_0.0.21/` and
+`True-Nukes-Graphics_Continued_0.0.3/`, and older issues and commits use those paths.
 
-**There are no gates yet.** No test, load check or commit check runs in this repository. Until one
-exists, verification is by running the game, and a claim that a change works needs a run behind it.
+All three declare `"factorio_version": "2.1"` and are incompatible (`!`) with the three Continued
+mods. The 2.1 data-stage breaks found by the spike (#12) are fixed (#20, #21), and so are the
+runtime bugs chosen in #17 (#23, #24). A Continued save keeps its world: items, entities and
+research, and `on_init` finds the test sites already built (#22). Blasts still running, crater
+healing and `nuclearTests` counts are lost, as #8 accepted.
+
+**Still open:** playing the port by hand (#27); the two replacement sounds, unheard (#5, #6); and
+why the game runs slower after a 15 kt blast on 2.1 than on 2.0 (#29). A 15 kt blast is playable,
+just slower afterwards.
+
+## Checks
+
+Set `FACTORIO_EXE` to the pinned **2.1.24 zip install, `D:\factorio-2.1\bin\x64\factorio.exe`**,
+for every run. Steam can update its install, and the port probe needs `--test-scenario`, which is
+new in 2.1.24. Both scripts run in the shared load harness's isolated directories, so the player's
+own mods, saves and settings are neither read nor written. They need `git submodule update --init`.
+
+- **`pwsh -File scripts/load-check.ps1`** loads the three mods and creates a map: every prototype
+  validates and every `on_init` runs. It runs no ticks. `-Check scripts/tests/shotgun-items.ps1`
+  also requires the six generated shotgun items. `scripts/tests/recipe-category.ps1` loads
+  Warheads alone under a mod that sets `recipe_category`.
+- **`pwsh -File scripts/port-probe.ps1 -Probe <name> [-Settings @{ name = value }]`** runs one
+  in-game probe under `--test-scenario`, which gives the game a player and runs ticks. It passes
+  on `PROBE RESULT PASS`. The probes are `testsite`, `testsite15`, `fusionsite`, `shotgunclear`,
+  `big15`, `big2s15`, `big100`, `big1M`, `blastdamage`, `basic`, `fixture`, `fixturesite`,
+  `craters`, `globals` and `achieve`; the script's header says what each one loads. `basic` is the
+  one for startup settings, for example `-Settings @{ 'enable-nuclear-tests' = $false }`.
+  `fixture` and `fixturesite` load the Continued fixture save in
+  `scripts/port-probe/fixtures/` (see its `README.md`). **`achieve` opens a game window for about a
+  minute**, because headless runs never report achievements.
+- **`scripts/freeze-time.ps1`** times a 15 kt blast's freeze on 2.0 with Continued against 2.1 with
+  these mods (#25). It needs a 2.0 install and the Continued zips, and **takes hours**: run it only
+  to re-measure. Its numbers are on #25, and the slowdown it found is open as #29.
+
+Headless runs load no sprites, sounds or lights, and nothing here measures how a blast looks.
+A claim about those needs a run with graphics.
+
+## Decisions
+
+**Settled by Truls** (#8, 2026-10-31, and #17): all three mods carry forward, with `Warheads` a
+separate mod, under the names above and the `TN-` prefix; the target is Factorio 2.1, base game,
+and Space Age comes later; the optional integrations stay dormant, untested, and are touched only
+if they break a load without those mods; Continued saves survive at world level; and the fix-or-keep
+list below.
+
+**Still open, and Truls's to make:** whether and when this ships to the mod portal, Space Age, which
+optional integrations to test or drop, and how far to diverge from Continued beyond the port.
+
+### Left deliberately
+
+From #17, through the spec (#18). These stay as Continued has them. Do not "fix" them without a
+new decision:
+
+- **`keep-atomic-bomb-without-changes`:** tested without `.value`, and a straight fix makes the
+  default delete `atomic-bomb`, which would vanish from saves silently.
+- **`nuke-self`:** nothing calls `nukedSelf`. It needs a design, not a fix.
+- **Menu simulations**, including the dead `enable-menu-backgrounds` setting.
+- **Birdshot:** no base-game warhead fits it.
+- **The stray `1`** in detonation recipes.
+- **`on_init` in `MushroomCloudInBuilt/control.lua`**, overwritten by the later registration.
+- **`originPos` in `atomic_weapon_hit`:** dormant without Space Exploration.
+- **Shotgun aiming:** no change to `force_clamp_to_max_range` or the `"position"` target type. With
+  a clear path every item hit. A shell going off on a tree in its path is the mod's design.
+
+The fix-or-keep rule from the spec still applies to anything new: fix a bug only if the intent is
+clear, the fix is a line or two, and saves are unaffected. Anything else gets a note on an issue.
 
 ## The rule that matters most here
 
-**The big decisions are open, and they are Truls's to make.** Among them:
-
-- whether this ships at all, and under which name and prototype prefix (the `_Continued` names
-  are Daimonfire's mods on the portal);
-- which of the three mods to carry forward, and whether `Warheads` stays a separate mod;
-- which optional mod integrations to keep (the `?` dependencies in each `info.json`: Krastorio 2,
-  Space Exploration, Bob's, Schall, Rampant Arsenal and others);
-- whether Space Age is a target;
-- how far to diverge from Continued.
+**The open decisions above are Truls's to make.**
 
 **This project may be thrown away.** If either ancestor is updated to 2.1, the work may stop. Do not
 build anything that only makes sense if the project is long-lived, and keep changes close to the
@@ -65,7 +119,7 @@ choosing between them is not.
 - **Both ancestors are MIT** (`LICENSE` here is the original's; GitHub reports MIT for both repos,
   checked 2026-10-31). Keep the copyright notices, and credit **BicycleEater** (the original) and
   **Daimonfire** (the 2.0 port) wherever this project credits anyone.
-- **`True-Nukes_Continued_0.3.36/MushroomCloudInBuilt/` is not the authors' own art.** The README
+- **`true-nukes-refreshed/MushroomCloudInBuilt/` is not the authors' own art.** The original README
   says the graphics and sounds come from the MushroomCloud mod by Arcitos, and each file carries
   its own licence (checked 2026-10-31): the code and the explosion pictures are MIT, one sound is
   CC BY, and five sounds are **CC BY-NC**. **NonCommercial material is acceptable in this
@@ -131,10 +185,11 @@ lets the commit through. `commit-check.ps1 -Range origin/main..HEAD` checks a br
 
 **[grado-factorio-tools](https://github.com/trulsjo/grado-factorio-tools) is a pinned submodule at
 `vendor/grado-factorio-tools`** (added 2026-10-31 at `36b34f7`), as in the other mod projects.
-Only its commit check is wired in so far, through the `commit-msg` hook above. It also has the load
-harness that creates a real map and asserts against it, the third-party mod-set fetcher, the packer
-that builds the distributable zips, the locale check and the Markdown check; which of those to wire
-in is Truls's call, and `realistic-fusion-refreshed` (a sibling directory) shows how a project wires
+Two of its tools are wired in: the commit check, through the `commit-msg` hook above, and the load
+harness, which `scripts/load-check.ps1`, `scripts/port-probe.ps1` and `scripts/freeze-time.ps1`
+use (see *Checks*). It also has the third-party mod-set fetcher, the packer that builds the
+distributable zips, the locale check and the Markdown check; those stay out for now (#8), and
+wiring them in is Truls's call, and `realistic-fusion-refreshed` (a sibling directory) shows how a project wires
 them. Bumping the pin is a deliberate commit, so a change in the tools cannot alter this repo's
 checks until this repo opts in.
 

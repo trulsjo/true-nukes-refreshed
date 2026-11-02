@@ -1,9 +1,37 @@
-# Factorio-True-Nukes
+# True Nukes Refreshed
+
 A Factorio mod adding realistic nuclear blasts, and more nuclear options, as well as Thermobaric weapons.
 
-Ported to 2.0 by Daimonfire
+This repository ports True Nukes to **Factorio 2.1**, base game. It holds three mods:
 
-All credit goes to the original creator of this mod, BicycleEater
+- `true-nukes-refreshed/`: the mod itself.
+- `warheads-refreshed/`: the shared warhead layer True Nukes depends on.
+- `true-nukes-graphics-refreshed/`: optional large explosion graphics.
+
+They are the mods of [True Nukes Continued](https://github.com/Daimonfire1/Factorio-True-Nukes_Continued)
+under new names, and they cannot run beside the Continued mods. A Continued save keeps its world
+(items, entities and research), but not blasts still running, crater healing or the count of
+nuclear tests. Space Age and the optional mod integrations are not tested.
+
+## Credits
+
+All credit for the mod goes to its original creator, **BicycleEater**
+([True Nukes](https://github.com/More-Wrong/Factorio-True-Nukes), for Factorio 1.1), and to
+**Daimonfire**, who ported it to Factorio 2.0 as True Nukes Continued. Both are MIT; see `LICENSE`.
+
+The explosion graphics and most sounds in `true-nukes-refreshed/MushroomCloudInBuilt/` come from
+[MushroomCloud](https://mods.factorio.com/mod/MushroomCloud) by **Arcitos**, as modified by
+BicycleEater. `MushroomCloudInBuilt/Attribution` lists each source:
+
+- the explosion animation, from [UraniumPower](https://mods.factorio.com/mod/UraniumPower) by
+  **Fatmice**;
+- sounds by **GowlerMusic**, **Robinhood76** and **Innominatus** on freesound.org;
+- *Distant Huge Explosion* by **RogerBoyX69** (CC BY 4.0, <https://freesound.org/s/396795/>),
+  used for `nuclear_detonation_in_vincinity_2.ogg`;
+- *Geiger_Tick_Low* by **JustLaz** (CC0, <https://freesound.org/s/616516/>), used for
+  `radiation_ticking.ogg`.
+
+Some of these sounds are licensed CC BY-NC, so this project is non-commercial.
 
 # Original Description
 

@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.0.4
+Date: 2026-11-02
+  Major Features:
+    - Ported to Factorio 2.1.
+  Changes:
+    - Renamed from True-Nukes-Graphics_Continued to true-nukes-graphics-refreshed. It cannot run beside the Continued mods.
+  Info:
+    - Based on True Nukes Graphics by BicycleEater and True Nukes Graphics Continued by Daimonfire.
+---------------------------------------------------------------------------------------------------
 Version: 0.0.3
 Date: 2025-12-29
   Changes:

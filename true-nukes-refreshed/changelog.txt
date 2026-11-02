@@ -1,4 +1,21 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.3.37
+Date: 2026-11-02
+  Major Features:
+    - Ported to Factorio 2.1, base game. Space Age and the optional mod integrations are not tested.
+  Changes:
+    - Renamed from True-Nukes_Continued to true-nukes-refreshed, and its dependency from Warheads_Continued to warheads-refreshed. It cannot run beside the Continued mods.
+    - Blast damage is cut to a tenth for every rail type, not only straight and 1.1 curved rails, and flying vehicles take half the blast again.
+  Bugfixes:
+    - Fixed the nuclear test site refusing warheads on Factorio 2.1.
+    - Fixed the game failing to load with nuclear tests turned off.
+    - Fixed the lose-nuke achievement never unlocking.
+    - Fixed the clearAllCraters command failing on an unknown tile.
+    - Fixed getGlobal and setGlobal in the remote interface, which used the 1.1 global table.
+  Info:
+    - A True Nukes Continued save keeps its items, entities and research, and test sites already built keep working. Blasts still running, crater healing and the count of nuclear tests are lost.
+    - Based on True Nukes by BicycleEater and True Nukes Continued by Daimonfire.
+---------------------------------------------------------------------------------------------------
 Version: 0.3.36
 Date: 2026-01-17
   Bugfixes:
