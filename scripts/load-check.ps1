@@ -33,7 +33,6 @@ $root = Split-Path $PSScriptRoot -Parent
 $harness = Join-Path $root 'vendor/grado-factorio-tools/scripts/load-harness.ps1'
 if (-not (Test-Path $harness)) { throw "No load harness at $harness. Run: git submodule update --init" }
 
-# The game loads no sprites or sounds here, so a path to a missing file is checked in the Lua.
 & (Join-Path $PSScriptRoot 'tests/asset-paths.ps1') -Root $root
 if ($LASTEXITCODE) { exit $LASTEXITCODE }
 
