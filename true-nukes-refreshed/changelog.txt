@@ -9,7 +9,7 @@ Date: 2026-11-02
   Bugfixes:
     - Fixed the nuclear test site refusing warheads on Factorio 2.1.
     - Fixed the game failing to load with nuclear tests turned off.
-    - Fixed the lose-nuke achievement never unlocking.
+    - Fixed the lose-nuke achievement never unlocking. Like the other achievements, it stays locked once cheat mode has been on.
     - Fixed the clearAllCraters command failing on an unknown tile.
     - Fixed getGlobal and setGlobal in the remote interface, which used the 1.1 global table.
   Info:
