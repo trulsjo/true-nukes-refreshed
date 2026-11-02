@@ -117,6 +117,10 @@ try {
             Get-FactorioErrorText -Result $created | Select-Object -First 30 | ForEach-Object { Write-Host $_ }
             throw "--create failed with exit $($created.Code)"
         }
+        # With the default video-memory-usage=all, a window asks for about 1.9 GB of VRAM. On a
+        # 6 GB card, a third window open at once stalls after "Parallel sprite loader initialized"
+        # and cannot be closed until the others free theirs. low lets three load.
+        Add-Content (Join-Path $harness.Temp 'factorio-config.ini') "[graphics]`nvideo-memory-usage=low"
         $outFile = Join-Path $harness.Temp 'achieve-stdout.txt'
         $line = (@('--config', (Join-Path $harness.Temp 'factorio-config.ini'), '--mod-directory', $harness.ModDirectory,
                 '--load-game', $save, '--disable-audio', '--window-size', '1280x720', '--disable-migration-window') |
