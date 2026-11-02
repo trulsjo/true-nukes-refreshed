@@ -6,8 +6,8 @@
 local blast_system = require("__true-nukes-refreshed__/scripts/blast-system")
 
 -- port-probe.ps1 writes windowed.lua, which returns the probe's name, into the copy of this mod
--- for a windowed run (achieve, achievecheat); no other run has it. windowed_probe is that
--- name, or nil.
+-- for a windowed run (achieve, achievecheat, everything); no other run has it. windowed_probe is
+-- that name, or nil.
 local has_windowed, windowed_probe = pcall(require, "windowed")
 if not has_windowed then windowed_probe = nil end
 
@@ -55,10 +55,11 @@ end
 
 -- Fire a warhead's util projectile at a position, as nukeBuildingDetonate in
 -- true-nukes-refreshed/scripts/building-system.lua does.
-local function detonate(name, position)
+-- source, if given, is the entity the blast is credited to, as the building is there.
+local function detonate(name, position, source)
   generate(position, 2)
   local e = surface().create_entity{name = "warhead-util-projectile" .. name, position = {position.x - 1, position.y},
-    target = position, speed = 100, max_range = 1, force = "player"}
+    target = position, speed = 100, max_range = 1, force = "player", source = source}
   say("fired", "warhead-util-projectile" .. name, e and "created" or "NOT CREATED")
   return e
 end
@@ -671,6 +672,51 @@ probes.achievecheat = function()
       local control, lost = storage.achievements["detonate-1Gt"], storage.achievements["lose-nuke"]
       say("detonate-1Gt", control, "lose-nuke", lost)
       finish(control and not lost, "with cheat mode on, the death unlocked detonate-1Gt and not lose-nuke")
+    end},
+  }
+end
+
+-- nukedEverything (true-nukes-refreshed/scripts/achievement-system.lua) from an optimised blast
+-- (#35), windowed like achieve. A 100 kt blast, which optimise-100kt (default on) sends through
+-- atomic_weapon_hit_optimised, lands among 1024 assemblers of the player force, credited to a chest
+-- of that force, and destroy-everything must unlock. It needs 1000 buildings counted before the
+-- blast and fewer than 20 left after it. The blast is 20000 tiles from spawn, beyond its reach.
+local EVERYTHING_AT = {x = 0, y = 20000}
+local EVERYTHING_SIDE = 32
+
+probes.everything = function()
+  return {
+    {1, function()
+      say("optimise-100kt", settings.global["optimise-100kt"].value, "cheat_mode", game.players[1].cheat_mode)
+      local half = EVERYTHING_SIDE * 3 / 2 + 8
+      local area = {{EVERYTHING_AT.x - half, EVERYTHING_AT.y - half}, {EVERYTHING_AT.x + half, EVERYTHING_AT.y + half}}
+      generate(EVERYTHING_AT, 4)
+      local tiles = {}
+      for x = area[1][1], area[2][1] - 1 do
+        for y = area[1][2], area[2][2] - 1 do tiles[#tiles + 1] = {name = "lab-dark-1", position = {x, y}} end
+      end
+      surface().set_tiles(tiles)
+      for _, e in pairs(surface().find_entities(area)) do
+        if e.valid and e.type ~= "character" then e.destroy() end
+      end
+      local placed = 0
+      for i = 0, EVERYTHING_SIDE - 1 do
+        for j = 0, EVERYTHING_SIDE - 1 do
+          local pos = {EVERYTHING_AT.x + (i - EVERYTHING_SIDE / 2) * 3 + 1.5, EVERYTHING_AT.y + (j - EVERYTHING_SIDE / 2) * 3 + 1.5}
+          if surface().create_entity{name = "assembling-machine-1", position = pos, force = "player"} then placed = placed + 1 end
+        end
+      end
+      local source = surface().create_entity{name = "wooden-chest", position = {EVERYTHING_AT.x, EVERYTHING_AT.y - half + 2},
+        force = "player"}
+      say("assemblers placed", placed, "player force buildings",
+        surface().count_entities_filtered{force = "player", type = {"furnace", "assembling-machine"}})
+      detonate("-atomic-2-stage-100kt", EVERYTHING_AT, source)
+    end},
+    {600, function()
+      local left = surface().count_entities_filtered{force = "player", type = {"furnace", "assembling-machine"}}
+      local got = storage.achievements["destroy-everything"] == true
+      say("effects 100kt", effects_named("Atomic Weapon hit 100kt"), "buildings left", left, "destroy-everything", got)
+      finish(got, "destroy-everything unlocked from an optimised 100 kt blast over 1024 assemblers")
     end},
   }
 end
