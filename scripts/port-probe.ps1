@@ -19,7 +19,7 @@
 
 .PARAMETER Probe
     The probe's name, passed as --test-arg: testsite, testsite15, fusionsite, shotgunclear, big15,
-    big2s15, big100, big1M, basic.
+    big2s15, big100, big1M, blastdamage, basic.
 
 .PARAMETER Settings
     Startup and runtime-global settings to change, as name = value. The probe mod's
