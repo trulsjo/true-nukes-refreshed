@@ -17,17 +17,17 @@
     The port was proved with these probes on Factorio 2.1.24, which added --test-scenario. Set
     $env:FACTORIO_EXE to that build.
 
-    achieve and achievecheat are the exception: achievements need a real game, so each creates a
-    new save in the harness's write-data directory and loads it in a window, which stays open on
-    the machine for about a minute while the game loads its graphics and runs. The runner closes the window once
-    the probe has printed its result; the probe also writes its lines to script-output/probe.txt,
-    because the game buffers stdout.
+    achieve, achievecheat and everything are the exceptions: achievements need a real game, so
+    each creates a new save in the harness's write-data directory and loads it in a window, which
+    stays open on the machine for about a minute while the game loads its graphics and runs. The
+    runner closes the window once the probe has printed its result; the probe also writes its lines
+    to script-output/probe.txt, because the game buffers stdout.
 
 .PARAMETER Probe
     The probe's name, passed as --test-arg: testsite, testsite15, fusionsite, shotgunclear, big15,
     big2s15, big100, big1M, blastdamage, basic, fixture, fixturesite, craters, globals,
-    savedglobals; or achieve and achievecheat, which run windowed. The comment above each probe in
-    port-probe/control.lua says what it does and what it needs to pass.
+    savedglobals; or achieve, achievecheat and everything, which run windowed. The comment above
+    each probe in port-probe/control.lua says what it does and what it needs to pass.
 
     fixture and fixturesite load the Continued fixture save (port-probe/fixtures) with --test-save
     instead of a new map, after checking its SHA-256.
@@ -40,8 +40,8 @@
 
 .PARAMETER TestTicks
     The most ticks the game runs before it gives up on the probe. A windowed run (achieve,
-    achievecheat) never passes it to the game: there it only sets how long the runner waits for
-    a PROBE RESULT line, TestTicks / 60 + 300 seconds.
+    achievecheat, everything) never passes it to the game: there it only sets how long the runner
+    waits for a PROBE RESULT line, TestTicks / 60 + 300 seconds.
 
 .PARAMETER KeepTemp
     Keep the harness's temp directory, with the captured output and log.
@@ -95,7 +95,7 @@ if ($Probe -in 'fixture', 'fixturesite') {
     $scenario = @('--test-save', (Join-Path $probeCopy 'tn-continued-fixture.zip'))
 }
 
-$windowed = $Probe -in 'achieve', 'achievecheat'
+$windowed = $Probe -in 'achieve', 'achievecheat', 'everything'
 if ($windowed) { "return `"$Probe`"" | Set-Content (Join-Path $probeCopy 'tn-port-probe/windowed.lua') }
 
 $mods = @('true-nukes-refreshed', 'warheads-refreshed', 'true-nukes-graphics-refreshed' |
@@ -119,12 +119,12 @@ try {
             Get-FactorioErrorText -Result $created | Select-Object -First 30 | ForEach-Object { Write-Host $_ }
             throw "--create failed with exit $($created.Code)"
         }
-        # Both windowed probes, achieve and achievecheat, start at video-memory-usage=low. With the
-        # default video-memory-usage=all, Factorio 2.1.24 estimates 1737 MB of textures for these
-        # mods. On a 6 GB card, a third window open at once stalls after "Parallel sprite loader
-        # initialized" and cannot be closed until the others free theirs. video-memory-usage=low
-        # lets three load only when the other windows use low too: beside two at the default, this
-        # one still stalls.
+        # The windowed probes, achieve, achievecheat and everything, start at video-memory-usage=low.
+        # With the default video-memory-usage=all, Factorio 2.1.24 estimates 1737 MB of textures for
+        # these mods. On a 6 GB card, a third window open at once stalls after "Parallel sprite
+        # loader initialized" and cannot be closed until the others free theirs.
+        # video-memory-usage=low lets three load only when the other windows use low too: beside two
+        # at the default, this one still stalls.
         $config = Join-Path $harness.Temp 'factorio-config.ini'
         Add-Content $config "[graphics]`nvideo-memory-usage=low"
         $outFile = Join-Path $harness.Temp 'achieve-stdout.txt'
