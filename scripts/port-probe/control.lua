@@ -215,6 +215,37 @@ probes.craters = function()
   }
 end
 
+-- getGlobal and setGlobal through the remote interface. True Nukes keeps allowAchievements in its
+-- storage from control.lua on, so getGlobal must show it. Then a marker is added to that table and
+-- handed back with setGlobal: a later getGlobal must show the marker with allowAchievements kept,
+-- and a blast after it must run on the replaced table without a script error. remote.call copies
+-- tables, so this sees the contents of storage, not the table itself.
+probes.globals = function()
+  return {
+    {1, function()
+      player()
+      local got = remote.call("True-Nukes Scripts", "getGlobal")
+      say("getGlobal", type(got), type(got) == "table" and tostring(got.allowAchievements) or "")
+      storage.got_live = type(got) == "table" and got.allowAchievements == true
+      if type(got) ~= "table" then return end
+      got.tn_probe_marker = 23
+      remote.call("True-Nukes Scripts", "setGlobal", got)
+      local again = remote.call("True-Nukes Scripts", "getGlobal")
+      say("after setGlobal", type(again), type(again) == "table" and tostring(again.tn_probe_marker) or "",
+        type(again) == "table" and tostring(again.allowAchievements) or "")
+      storage.set_kept = type(again) == "table" and again.tn_probe_marker == 23 and again.allowAchievements == true
+      detonate("-atomic-20t", {x = 0, y = 0})
+    end},
+    {600, function()
+      local again = remote.call("True-Nukes Scripts", "getGlobal")
+      local marker = type(again) == "table" and again.tn_probe_marker
+      say("after blast", "marker", tostring(marker), "effects", effects_named("Atomic Weapon hit 20t"), "crater", crater_tiles())
+      finish(storage.got_live and storage.set_kept and marker == 23 and effects_named("Atomic Weapon hit 20t") > 0,
+        "getGlobal returned storage, and setGlobal replaced it with the blast still running")
+    end},
+  }
+end
+
 -- A short run for settings variants: count what was generated, set off two small warheads if they
 -- exist. It passes if the game loads and runs 600 ticks without a script error.
 probes.basic = function()

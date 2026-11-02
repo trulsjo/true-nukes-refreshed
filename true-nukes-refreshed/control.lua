@@ -477,10 +477,10 @@ local function clearAllCraters(surface)
 end
 
 local function getGlobal()
-  return global;
+  return storage;
 end
 local function setGlobal(newglobal)
-  global = newglobal;
+  storage = newglobal;
 end
 remote.add_interface("True-Nukes Scripts", {
   thermobaricWeaponHit = thermobaric_weapon_hit,
