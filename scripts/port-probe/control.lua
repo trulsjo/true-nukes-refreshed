@@ -170,6 +170,90 @@ probes.big2s15 = big_probe("-atomic-2-stage-15kt", "Atomic Weapon hit 15kt", 120
 probes.big100 = big_probe("-atomic-2-stage-100kt", "Atomic Weapon hit 100kt", 1200)
 probes.big1M = big_probe("-atomic-2-stage-1Mt", "Atomic Weapon hit 1Mt", 1200)
 
+-- The Continued fixture save (#22), loaded with --test-save. The expected values were measured on
+-- it under #13: Factorio 2.0.77 with Continued 0.3.36, and 2.1 with the spike's mods.
+local FIXTURE_NUCLEAR_TILES = 464
+-- LuaTechnologyPrototype.max_level of an infinite technology (2.1.24). #13's 200 of 200 counted
+-- only the finite ones; the fixture leaves the 9 infinite ones of base unresearched.
+local INFINITE = 4294967295
+
+-- Every tile named nuclear*, as #13 counted them. crater_tiles leaves out nuclear-ground.
+local function nuclear_tiles()
+  local names = {}
+  for name, _ in pairs(prototypes.tile) do
+    if string.match(name, "^nuclear") then names[#names + 1] = name end
+  end
+  return surface().count_tiles_filtered{name = names}
+end
+
+local function fixture_sites()
+  local sites = {}
+  for _, name in pairs({"nuclear-test-site", "fusion-test-site"}) do
+    sites[name] = surface().find_entities_filtered{name = name}
+  end
+  return sites
+end
+
+-- What the save kept: both test sites, the warheads in the character and its corpse, research and
+-- recipes. True Nukes logs the nukeBuildings count from on_init; port-probe.ps1 checks that line.
+probes.fixture = function()
+  return {
+    {1, function()
+      local sites = fixture_sites()
+      local n_site, n_fusion = #sites["nuclear-test-site"], #sites["fusion-test-site"]
+      local in_characters, in_corpses = 0, 0
+      local characters = surface().find_entities_filtered{type = "character"}
+      for _, c in pairs(characters) do in_characters = in_characters + c.get_item_count("TN-warhead-20--1") end
+      local corpses = surface().find_entities_filtered{type = "character-corpse"}
+      for _, c in pairs(corpses) do
+        in_corpses = in_corpses + c.get_inventory(defines.inventory.character_corpse).get_item_count("TN-warhead-20--1")
+      end
+      local researched, techs = 0, 0
+      for _, t in pairs(game.forces.player.technologies) do
+        if t.prototype.max_level ~= INFINITE then
+          techs = techs + 1
+          if t.researched then researched = researched + 1 end
+        end
+      end
+      local recipes = 0
+      for _, r in pairs(game.forces.player.recipes) do
+        if r.enabled then recipes = recipes + 1 end
+      end
+      say("fixture sites", n_site, n_fusion, "characters", #characters, "warheads", in_characters,
+        "corpses", #corpses, "warheads", in_corpses, "research", researched .. "/" .. techs,
+        "recipes", recipes, "nuclear tiles", nuclear_tiles())
+      finish(n_site == 1 and n_fusion == 1 and in_characters == 3 and in_corpses == 3
+        and researched == 200 and techs == 200 and recipes == 355,
+        "both test sites, 3 + 3 warheads, 200 of 200 finite research and 355 recipes kept")
+    end},
+  }
+end
+
+-- A 20 t warhead in the fixture's nuclear-test-site detonates. Every character is moved 440 tiles
+-- from the site first: a blast near the only character ended the runs measured under #13.
+probes.fixturesite = function()
+  local building, before
+  return {
+    {1, function()
+      building = fixture_sites()["nuclear-test-site"][1]
+      if not building then return finish(false, "no nuclear-test-site in the fixture") end
+      local away = {x = building.position.x + 440, y = building.position.y}
+      generate(away, 1)
+      for _, c in pairs(surface().find_entities_filtered{type = "character"}) do
+        say("moved character", c.teleport(away))
+      end
+      before = nuclear_tiles()
+      say("nuclear tiles before", before)
+      say("inserted", "TN-warhead-20--1", building.insert{name = "TN-warhead-20--1", count = 1})
+    end},
+    {1800, function()
+      local effects, crater = effects_named("Atomic Weapon hit 20t"), nuclear_tiles()
+      say("site valid", building.valid, "effects", effects, "nuclear tiles", crater)
+      finish(before == FIXTURE_NUCLEAR_TILES and effects > 0 and crater > before, "detonated and nuclear tiles rose from " .. FIXTURE_NUCLEAR_TILES)
+    end},
+  }
+end
+
 -- A short run for settings variants: count what was generated, set off two small warheads if they
 -- exist. It passes if the game loads and runs 600 ticks without a script error.
 probes.basic = function()
