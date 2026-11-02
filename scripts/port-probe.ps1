@@ -100,6 +100,7 @@ $mods = @('true-nukes-refreshed', 'warheads-refreshed', 'true-nukes-graphics-ref
     ForEach-Object { Join-Path $root $_ }) + (Join-Path $probeCopy 'tn-port-probe')
 $harness = New-LoadHarness -Mods $mods
 $code = 1
+$proc = $null
 try {
     Write-HarnessModList -Harness $harness
     if ($windowed) {
@@ -129,8 +130,8 @@ try {
             $out = @(Get-Content $probeFile -ErrorAction SilentlyContinue)
             if ($out -match '^PROBE RESULT ') { break }
         }
+        # The window is closed in finally, so an error or Ctrl+C here can't leave it running.
         $exited = $proc.HasExited
-        if (-not $exited) { Stop-Process -Id $proc.Id -Force; $proc.WaitForExit() }
         $out = @(Get-Content $probeFile -ErrorAction SilentlyContinue)
         $out | ForEach-Object { Write-Host $_ }
         Get-Content (Join-Path $harness.Temp 'write-data/factorio-current.log') -ErrorAction SilentlyContinue |
@@ -153,6 +154,7 @@ try {
     }
 }
 finally {
+    if ($proc -and -not $proc.HasExited) { Stop-Process -Id $proc.Id -Force; $proc.WaitForExit() }
     Remove-LoadHarness -Harness $harness -Keep:$KeepTemp
     Remove-Item $probeCopy -Recurse -Force
 }

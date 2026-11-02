@@ -9,8 +9,9 @@ local blast_system = require("__true-nukes-refreshed__/scripts/blast-system")
 local windowed = pcall(require, "windowed")
 
 local function say(...)
+  -- select keeps nil arguments, which pairs over {...} would skip.
   local parts = {}
-  for _, v in pairs({...}) do parts[#parts + 1] = tostring(v) end
+  for i = 1, select("#", ...) do parts[i] = tostring((select(i, ...))) end
   local line = "PROBE " .. table.concat(parts, " ")
   print(line)
   -- A windowed game buffers stdout, and the runner kills it, so the tail of stdout is lost. The
