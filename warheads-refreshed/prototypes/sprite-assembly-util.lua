@@ -301,23 +301,23 @@ local sprite_types = {
   },
   rounds = {
     {
-      base = "__warheads-refreshed__/graphics/rounds/rounds-blank.png",
+      base = "__warheads-refreshed__/graphics/rounds/generic-rounds/rounds-blank.png",
       sections = {
-        "__warheads-refreshed__/graphics/rounds/rounds-end.png",
+        "__warheads-refreshed__/graphics/rounds/generic-rounds/rounds-end.png",
       },
       lights = {
-        "__warheads-refreshed__/graphics/rounds/rounds-end.png",
+        "__warheads-refreshed__/graphics/rounds/generic-rounds/rounds-end.png",
       }
     },
     {
-      base = "__warheads-refreshed__/graphics/rounds/rounds-blank.png",
+      base = "__warheads-refreshed__/graphics/rounds/generic-rounds/rounds-blank.png",
       sections = {
-        "__warheads-refreshed__/graphics/rounds/rounds-end.png",
-        "__warheads-refreshed__/graphics/rounds/rounds-middle.png",
+        "__warheads-refreshed__/graphics/rounds/generic-rounds/rounds-end.png",
+        "__warheads-refreshed__/graphics/rounds/generic-rounds/rounds-middle.png",
       },
       lights = {
-        "__warheads-refreshed__/graphics/rounds/rounds-end.png",
-        "__warheads-refreshed__/graphics/rounds/rounds-middle.png",
+        "__warheads-refreshed__/graphics/rounds/generic-rounds/rounds-end.png",
+        "__warheads-refreshed__/graphics/rounds/generic-rounds/rounds-middle.png",
       }
     }
   },
