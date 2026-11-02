@@ -47,13 +47,14 @@
     Where each session's factorio-current.log is kept, named <version>-<mode>-<n>.log.
 
 .PARAMETER Logs
-    Session logs kept from earlier runs: the table is made from them, and no game is run.
+    Session logs kept from earlier runs, as paths or wildcards: the table is made from them, and no
+    game is run. Through -File only one value passes, so give several logs as one wildcard.
 
 .EXAMPLE
     pwsh -File scripts/freeze-time.ps1 -Sessions 3
 
 .EXAMPLE
-    pwsh -File scripts/freeze-time.ps1 -Logs (Get-ChildItem $env:TEMP/tn-freeze-time-logs/*-headless-*.log)
+    pwsh -File scripts/freeze-time.ps1 -Logs "$env:TEMP/tn-freeze-time-logs/*-headless-*.log"
 #>
 
 #Requires -Version 7
@@ -152,7 +153,7 @@ function Read-Session([string] $Log) {
 }
 
 if ($Logs) {
-    foreach ($log in $Logs) { Write-Host $log; Read-Session $log }
+    foreach ($log in Get-ChildItem $Logs -File | Sort-Object Name) { Write-Host $log.Name; Read-Session $log.FullName }
 } else {
     if (-not (Test-Path $Save)) {
         Write-Host "creating $Save on 2.0"
