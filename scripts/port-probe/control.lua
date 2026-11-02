@@ -2,6 +2,9 @@
 -- from --test-arg. Every line it prints starts with PROBE, and the last is PROBE RESULT.
 -- Redone from the 2.1 spike's probe (#12) for #21.
 
+-- The blast module's own exports, driven directly by the blastdamage probe.
+local blast_system = require("__true-nukes-refreshed__/scripts/blast-system")
+
 -- port-probe.ps1 writes windowed.lua into the achieve run's copy of this mod; no other run has it.
 local windowed = pcall(require, "windowed")
 
@@ -17,9 +20,10 @@ end
 
 local function surface() return game.surfaces[1] end
 
-local function generate(position, radius_chunks)
-  surface().request_to_generate_chunks(position, radius_chunks or 2)
-  surface().force_generate_chunk_requests()
+local function generate(position, radius_chunks, on)
+  on = on or surface()
+  on.request_to_generate_chunks(position, radius_chunks or 2)
+  on.force_generate_chunk_requests()
 end
 
 local function player()
@@ -62,11 +66,14 @@ end
 -- Each probe returns a list of {tick, function}. A function may call finish.
 local probes = {}
 
--- Generated shotgun ammo fired from gun turrets at worms, one turret per item, far apart, with every
--- tree within 30 tiles and every enemy within 60 tiles of the turret removed first. A pass needs, for every item, the worm damaged
--- or killed and a hit within 4 tiles of the worm: a blast at the turret can reach a worm 14 tiles
--- away, so damage alone does not show the shot got there. A worm can die with no damage event,
--- because the crater script removes entities itself.
+-- Generated shotgun ammo fired from gun turrets at worms, one turret per item, far apart. A pass
+-- needs, for every item, the worm damaged or killed and a hit within 4 tiles of the worm: a blast
+-- at the turret can reach a worm 14 tiles away, so damage alone does not show the shot got there.
+-- A worm can die with no damage event, because the crater script removes entities itself.
+-- It runs on a surface of its own made only of lab tiles, so there are no trees, rocks, water or
+-- enemy bases: on the random default map a turret took a closer enemy, or a shell went off on a
+-- tree in its path, and the run failed for reasons that are not the shell's. The probe's own worm
+-- is the only enemy each turret can see.
 probes.shotgunclear = function()
   local items = {}
   for name, _ in pairs(prototypes.item) do
@@ -77,19 +84,18 @@ probes.shotgunclear = function()
   local spots = {}
   return {
     {1, function()
+      local lab = game.create_surface("tn-port-probe-lab")
+      lab.generate_with_lab_tiles = true
       for i, name in pairs(items) do
         local pos = {x = i * 700, y = 0}
-        generate(pos, 2)
-        for _, t in pairs(surface().find_entities_filtered{type = "tree", position = pos, radius = 30}) do t.destroy() end
-        -- A turret shoots the closest enemy, so any other enemy near it takes the shot.
-        local enemies = surface().find_entities_filtered{force = "enemy", position = pos, radius = 60}
-        for _, e in pairs(enemies) do e.destroy() end
-        local turret = surface().create_entity{name = "gun-turret", position = pos, force = "player"}
+        generate(pos, 2, lab)
+        local turret = lab.create_entity{name = "gun-turret", position = pos, force = "player"}
         local inserted = turret.insert{name = name, count = 10}
-        local worm = surface().create_entity{name = "small-worm-turret", position = {pos.x + 14, pos.y}, force = "enemy"}
+        local worm = lab.create_entity{name = "small-worm-turret", position = {pos.x + 14, pos.y}, force = "enemy"}
         storage.worm_damage[worm.unit_number] = 0
         spots[i] = {name = name, pos = pos, turret = turret, worm = worm, unit = worm.unit_number, inserted = inserted}
-        say("placed", name, "inserted", inserted, "worm", worm.valid, "enemies cleared", #enemies)
+        say("placed", name, "inserted", inserted, "worm", worm.valid,
+          "other entities", lab.count_entities_filtered{position = pos, radius = 60} - 2)
       end
     end},
     {900, function()
@@ -176,6 +182,187 @@ probes.big15 = big_probe("-atomic-15kt", "Atomic Weapon hit 15kt", 1200)
 probes.big2s15 = big_probe("-atomic-2-stage-15kt", "Atomic Weapon hit 15kt", 1200)
 probes.big100 = big_probe("-atomic-2-stage-100kt", "Atomic Weapon hit 100kt", 1200)
 probes.big1M = big_probe("-atomic-2-stage-1Mt", "Atomic Weapon hit 1Mt", 1200)
+
+-- The Continued fixture save (#22), loaded with --test-save. The expected values were measured on
+-- it under #13: Factorio 2.0.77 with Continued 0.3.36, and 2.1 with the spike's mods.
+local FIXTURE_NUCLEAR_TILES = 464
+-- LuaTechnologyPrototype.max_level of an infinite technology (2.1.24). #13's 200 of 200 counted
+-- only the finite ones; the fixture leaves the 9 infinite ones of base unresearched.
+local INFINITE = 4294967295
+
+-- Every tile named nuclear*, as #13 counted them. crater_tiles leaves out nuclear-ground.
+local function nuclear_tiles()
+  local names = {}
+  for name, _ in pairs(prototypes.tile) do
+    if string.match(name, "^nuclear") then names[#names + 1] = name end
+  end
+  return surface().count_tiles_filtered{name = names}
+end
+
+local function fixture_sites()
+  local sites = {}
+  for _, name in pairs({"nuclear-test-site", "fusion-test-site"}) do
+    sites[name] = surface().find_entities_filtered{name = name}
+  end
+  return sites
+end
+
+-- What the save kept: both test sites, the warheads in the character and its corpse, research and
+-- recipes. True Nukes logs the nukeBuildings count from on_init; port-probe.ps1 checks that line.
+probes.fixture = function()
+  return {
+    {1, function()
+      local sites = fixture_sites()
+      local n_site, n_fusion = #sites["nuclear-test-site"], #sites["fusion-test-site"]
+      local in_characters, in_corpses = 0, 0
+      local characters = surface().find_entities_filtered{type = "character"}
+      for _, c in pairs(characters) do in_characters = in_characters + c.get_item_count("TN-warhead-20--1") end
+      local corpses = surface().find_entities_filtered{type = "character-corpse"}
+      for _, c in pairs(corpses) do
+        in_corpses = in_corpses + c.get_inventory(defines.inventory.character_corpse).get_item_count("TN-warhead-20--1")
+      end
+      local researched, techs = 0, 0
+      for _, t in pairs(game.forces.player.technologies) do
+        if t.prototype.max_level ~= INFINITE then
+          techs = techs + 1
+          if t.researched then researched = researched + 1 end
+        end
+      end
+      local recipes = 0
+      for _, r in pairs(game.forces.player.recipes) do
+        if r.enabled then recipes = recipes + 1 end
+      end
+      say("fixture sites", n_site, n_fusion, "characters", #characters, "warheads", in_characters,
+        "corpses", #corpses, "warheads", in_corpses, "research", researched .. "/" .. techs,
+        "recipes", recipes, "nuclear tiles", nuclear_tiles())
+      finish(n_site == 1 and n_fusion == 1 and in_characters == 3 and in_corpses == 3
+        and researched == 200 and techs == 200 and recipes == 355,
+        "both test sites, 3 + 3 warheads, 200 of 200 finite research and 355 recipes kept")
+    end},
+  }
+end
+
+-- A 20 t warhead in the fixture's nuclear-test-site detonates. Every character is moved 440 tiles
+-- from the site first: a blast near the only character ended the runs measured under #13.
+probes.fixturesite = function()
+  local building, before
+  return {
+    {1, function()
+      building = fixture_sites()["nuclear-test-site"][1]
+      if not building then return finish(false, "no nuclear-test-site in the fixture") end
+      local away = {x = building.position.x + 440, y = building.position.y}
+      generate(away, 1)
+      for _, c in pairs(surface().find_entities_filtered{type = "character"}) do
+        say("moved character", c.teleport(away))
+      end
+      before = nuclear_tiles()
+      say("nuclear tiles before", before)
+      say("inserted", "TN-warhead-20--1", building.insert{name = "TN-warhead-20--1", count = 1})
+    end},
+    {1800, function()
+      local effects, crater = effects_named("Atomic Weapon hit 20t"), nuclear_tiles()
+      say("site valid", building.valid, "effects", effects, "nuclear tiles", crater)
+      finish(before == FIXTURE_NUCLEAR_TILES and effects > 0 and crater > before, "detonated and nuclear tiles rose from " .. FIXTURE_NUCLEAR_TILES)
+    end},
+  }
+end
+
+-- Blast damage to rails and flying vehicles (#24), through blast-system.lua's chunk_loaded with a
+-- flat damage D: init_blast 0 and a blast_min_damage of D give every entity D, whatever its
+-- distance. damage_entity then rolls math.random(d/2, 2d) on d = D, D/10 for a rail or D/2 for a
+-- vehicle with no collision layers. With D = 40 an unreduced hit takes 20 to 80 and a rail's 2 to
+-- 8, so one hit tells them apart; a flying vehicle's 10 to 40 overlaps, so vehicles are averaged.
+local RAIL_TYPES = {"straight-rail", "curved-rail-a", "curved-rail-b", "half-diagonal-rail",
+  "legacy-straight-rail", "legacy-curved-rail", "rail-ramp", "elevated-straight-rail",
+  "elevated-curved-rail-a", "elevated-curved-rail-b", "elevated-half-diagonal-rail"}
+
+probes.blastdamage = function()
+  local D, HITS = 40, 40
+  local function chunk_of(pos) return {x = math.floor(pos.x / 32) * 32, y = math.floor(pos.y / 32) * 32} end
+
+  -- Hit an entity alone in its chunk n times, healing it between hits; return each hit's loss.
+  local function losses(entity, n)
+    local c = chunk_of(entity.position)
+    local struct = {fireball_r = 0, init_blast = 0, blast_min_damage = D}
+    local area = {area = {{c.x, c.y}, {c.x + 32, c.y + 32}}}
+    local out = {}
+    for i = 1, n do
+      entity.health = entity.max_health
+      blast_system.chunk_loaded(struct, surface().index, {x = c.x - 64, y = c.y - 64}, area, c.x, c.y, true, 1e12,
+        "player", nil, {})
+      out[i] = entity.max_health - entity.health
+    end
+    return out
+  end
+
+  local function spot(i)
+    local pos = {x = i * 64 + 16, y = 1000 + 16}
+    generate(pos, 1)
+    local c = chunk_of(pos)
+    for _, e in pairs(surface().find_entities({{c.x, c.y}, {c.x + 32, c.y + 32}})) do
+      if e.type ~= "character" then e.destroy() end
+    end
+    return pos
+  end
+
+  return {
+    {1, function()
+      local ok, i = true, 0
+      -- Every entity type the game knows with "rail" in it, to show the list covers them.
+      local seen = {}
+      for _, p in pairs(prototypes.entity) do
+        if string.match(p.type, "rail") then seen[p.type] = (seen[p.type] or 0) + 1 end
+      end
+      local seen_list = {}
+      for t, n in pairs(seen) do seen_list[#seen_list + 1] = t .. "=" .. n end
+      table.sort(seen_list)
+      say("rail-like types present", table.concat(seen_list, " "))
+
+      local tested = 0
+      for _, t in pairs(RAIL_TYPES) do
+        local names = {}
+        for name, p in pairs(prototypes.entity) do if p.type == t then names[#names + 1] = name end end
+        table.sort(names)
+        if #names == 0 then say("rail", t, "no prototype in this game") end
+        for _, name in pairs(names) do
+          i = i + 1
+          -- Without Space Age the elevated rails and the ramp are dummy-* prototypes the game refuses
+          -- to place; they are reported, not counted.
+          local created, e = pcall(surface().create_entity, {name = name, position = spot(i), force = "player"})
+          if not (created and e and e.valid) then
+            say("rail", t, name, "cannot be placed", string.match(name, "^dummy%-") and "(dummy)" or "NOT A DUMMY")
+            if not string.match(name, "^dummy%-") then ok = false end
+          else
+            local l = losses(e, 10)
+            local max = math.max(table.unpack(l))
+            local reduced = max <= D / 5
+            say("rail", t, name, "health", e.max_health, "losses", table.concat(l, ","), reduced and "reduced" or "FULL")
+            if not reduced then ok = false end
+            tested = tested + 1
+          end
+        end
+      end
+      if tested == 0 then ok = false end
+
+      local mean = {}
+      for _, name in pairs({"tn-probe-car", "tn-probe-flying-car"}) do
+        i = i + 1
+        local e = surface().create_entity{name = name, position = spot(i), force = "player"}
+        local l = losses(e, HITS)
+        local sum = 0
+        for _, v in pairs(l) do sum = sum + v end
+        mean[name] = sum / HITS
+        say("vehicle", name, "layers", table_size(e.prototype.collision_mask.layers),
+          "mean loss", string.format("%.1f", mean[name]), "over", HITS, "hits")
+      end
+      -- Unreduced mean is 1.25 D = 50 and halved 0.625 D = 25; split at 37.5.
+      local split = 0.9375 * D
+      if not (mean["tn-probe-car"] > split and mean["tn-probe-flying-car"] < split) then ok = false end
+
+      finish(ok, "every rail type takes a tenth of the blast; a vehicle with no collision layers takes half, an ordinary one all")
+    end},
+  }
+end
 
 -- The crater tiles water can fill, each with what clearAllCraters turns it into: the deep ones into
 -- deepwater, the crater ones into water, the shallow one into water-shallow. nuclear-high is the

@@ -32,6 +32,21 @@ script.on_init(function()
 
 
   storage.cratersSlow = {} 				-- array of {t = time waiting - 20s units, x = xin units of 32, y = y in units of 32, surface = the surface index}
+
+  -- A save made with True Nukes Continued starts this renamed mod with empty storage, so its test
+  -- sites would craft a warhead and never detonate it. Find the buildings "Mega-nuke built" tracks.
+  local names = {}
+  for _, name in pairs({"nuclear-test-site", "fusion-test-site"}) do
+    if prototypes.entity[name] then names[#names + 1] = name end
+  end
+  if #names > 0 then
+    for _, surface in pairs(game.surfaces) do
+      for _, building in pairs(surface.find_entities_filtered{name = names}) do
+        table.insert(storage.nukeBuildings, building)
+      end
+    end
+  end
+  log("on_init found " .. #storage.nukeBuildings .. " nukeBuildings")
 end)
 
 

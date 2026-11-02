@@ -25,7 +25,12 @@
 
 .PARAMETER Probe
     The probe's name, passed as --test-arg: testsite, testsite15, fusionsite, shotgunclear, big15,
-    big2s15, big100, big1M, basic, craters, globals; or achieve, which runs windowed.
+    big2s15, big100, big1M, blastdamage, basic, fixture, fixturesite, craters, globals; or achieve,
+    which runs windowed.
+
+    fixture and fixturesite load the Continued fixture save (port-probe/fixtures) with --test-save
+    instead of a new map, after checking its SHA-256. fixture also needs True Nukes' on_init to log
+    that it found 2 nukeBuildings.
 
 .PARAMETER Settings
     Startup and runtime-global settings to change, as name = value. The probe mod's
@@ -68,6 +73,20 @@ $lines = foreach ($k in $Settings.Keys) {
     "end"
 }
 ($lines -join "`n") | Set-Content (Join-Path $probeCopy 'tn-port-probe/settings-final-fixes.lua')
+
+# Probes that load the Continued fixture save rather than a new map, and the stdout line each needs
+# besides PROBE RESULT PASS. The probe mod cannot read True Nukes' storage, so on_init logs it.
+$fixture = Join-Path $PSScriptRoot 'port-probe/fixtures/tn-continued-fixture.zip'
+$fixtureHash = '98ec59f472c85d11989a7a0152e678cc99de990e7482e9fdae14f626ac80cc28'
+$saveProbes = @{ fixture = 'on_init found 2 nukeBuildings'; fixturesite = $null }
+$scenario = @('--test-scenario', 'tn-port-probe/p')
+if ($saveProbes.ContainsKey($Probe)) {
+    $hash = (Get-FileHash $fixture -Algorithm SHA256).Hash.ToLower()
+    if ($hash -ne $fixtureHash) { throw "Fixture hash is $hash, expected $fixtureHash" }
+    # The game is given a copy, so the committed fixture is never written.
+    Copy-Item $fixture (Join-Path $probeCopy 'tn-continued-fixture.zip')
+    $scenario = @('--test-save', (Join-Path $probeCopy 'tn-continued-fixture.zip'))
+}
 
 $windowed = $Probe -eq 'achieve'
 if ($windowed) { 'return true' | Set-Content (Join-Path $probeCopy 'tn-port-probe/windowed.lua') }
@@ -112,19 +131,25 @@ try {
         Get-Content (Join-Path $h.Temp 'write-data/factorio-current.log') -ErrorAction SilentlyContinue |
             Where-Object { $_ -match 'Error' } | Select-Object -First 30 | ForEach-Object { Write-Host $_ }
         $passed = $out -match '^PROBE RESULT PASS'
-        Write-Host "$(if ($exited) { "game exited by itself with $($proc.ExitCode)" } else { 'game closed by the runner' }), $(if ($passed) { 'PASS' } else { 'no PASS line' })"
+        Write-Host "$(if ($exited) { "game exited by itself with $($proc.ExitCode)" } else { 'game closed by the runner' }), $(if ($passed) { 'PASS' } else { 'FAIL' })"
         if ($passed -and -not $exited) { $code = 0 }
     }
     else {
         $result = Invoke-Factorio -FactorioExe $h.FactorioExe -ModDirectory $h.ModDirectory `
-            -Arguments @('--test-scenario', 'tn-port-probe/p', '--test-arg', $Probe, '--test-ticks', "$TestTicks") `
+            -Arguments ($scenario + @('--test-arg', $Probe, '--test-ticks', "$TestTicks")) `
             -OutputDirectory $h.Temp -Tag $Probe
         $out = Get-Content $result.OutFile
         $out | Where-Object { $_ -match '^PROBE ' } | ForEach-Object { Write-Host $_ }
         $err = Get-FactorioErrorText -Result $result
         if ($err) { Write-Host '--- error ---'; $err | Select-Object -First 30 | ForEach-Object { Write-Host $_ } }
-        $passed = $out -match '^PROBE RESULT PASS'
-        Write-Host "exit $($result.Code), $(if ($passed) { 'PASS' } else { 'no PASS line' })"
+        $passed = [bool]($out -match '^PROBE RESULT PASS')
+        $needs = if ($saveProbes.ContainsKey($Probe)) { $saveProbes[$Probe] }
+        if ($needs) {
+            $found = $out -match [regex]::Escape($needs)
+            Write-Host "needs '$needs': $(if ($found) { $found | Select-Object -First 1 } else { 'not found' })"
+            if (-not $found) { $passed = $false }
+        }
+        Write-Host "exit $($result.Code), $(if ($passed) { 'PASS' } else { 'FAIL' })"
         if ($result.Code -eq 0 -and $passed) { $code = 0 }
     }
 }
