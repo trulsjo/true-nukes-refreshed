@@ -87,7 +87,6 @@ new decision:
 - **`nuke-self`:** left unchanged. `nukedSelf` (`true-nukes-refreshed/scripts/achievement-system.lua`)
   is called from `full_fireball` (`true-nukes-refreshed/scripts/fireball-system.lua`), so the spec's
   "nothing calls it" was wrong. Whether a real blast unlocks it has not been measured.
-  It needs a design, not a fix.
 - **Menu simulations** (`true-nukes-refreshed/menu-simulations/`), including the dead
   `enable-menu-backgrounds` setting.
 - **Birdshot** (`shotgun-shell-birdshot` in `warheads-refreshed/prototypes/basegame-weapontype-add.lua`):
