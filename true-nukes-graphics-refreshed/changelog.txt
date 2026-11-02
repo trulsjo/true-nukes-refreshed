@@ -6,6 +6,7 @@ Date: 2026-11-02
   Changes:
     - Renamed from True-Nukes-Graphics_Continued to true-nukes-graphics-refreshed. It cannot run beside the Continued mods.
   Info:
+    - A True Nukes Graphics Continued save keeps working. This mod holds only explosion graphics: no items, research or script state, so it loses nothing.
     - Based on True Nukes Graphics by BicycleEater and True Nukes Graphics Continued by Daimonfire.
 ---------------------------------------------------------------------------------------------------
 Version: 0.0.3

@@ -10,6 +10,7 @@ Date: 2026-11-02
   Modding:
     - recipe_category on a warhead or weapontype keeps its name, and is translated into the recipe's categories for Factorio 2.1.
   Info:
+    - A Warheads Continued save keeps its items and entities. Warheads holds no research and no script state, so it loses nothing else.
     - Based on Warheads by BicycleEater and Warheads Continued by Daimonfire.
 ---------------------------------------------------------------------------------------------------
 Version: 0.0.21

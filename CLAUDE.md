@@ -37,19 +37,23 @@ just slower afterwards.
 
 Set `FACTORIO_EXE` to the pinned **2.1.24 zip install, `D:\factorio-2.1\bin\x64\factorio.exe`**,
 for every run. Steam can update its install, and the port probe needs `--test-scenario`, which is
-new in 2.1.24. Both scripts run in the shared load harness's isolated directories, so the player's
-own mods, saves and settings are neither read nor written. They need `git submodule update --init`.
+new in 2.1.24. All three scripts below run in the shared load harness's isolated directories, so
+the player's own mods, saves and settings are neither read nor written. They need
+`git submodule update --init`.
 
 - **`pwsh -File scripts/load-check.ps1`** loads the three mods and creates a map: every prototype
   validates and every `on_init` runs. It runs no ticks. `-Check scripts/tests/shotgun-items.ps1`
   also requires the six generated shotgun items. `scripts/tests/recipe-category.ps1` loads
   Warheads alone under a mod that sets `recipe_category`.
-- **`pwsh -File scripts/port-probe.ps1 -Probe <name> [-Settings @{ name = value }]`** runs one
-  in-game probe under `--test-scenario`, which gives the game a player and runs ticks. It passes
-  on `PROBE RESULT PASS`. The probes are `testsite`, `testsite15`, `fusionsite`, `shotgunclear`,
+- **`pwsh -File scripts/port-probe.ps1 -Probe <name>`** runs one in-game probe under
+  `--test-scenario`, which gives the game a player and runs ticks. It passes on
+  `PROBE RESULT PASS`. The probes are `testsite`, `testsite15`, `fusionsite`, `shotgunclear`,
   `big15`, `big2s15`, `big100`, `big1M`, `blastdamage`, `basic`, `fixture`, `fixturesite`,
-  `craters`, `globals` and `achieve`; the script's header says what each one loads. `basic` is the
-  one for startup settings, for example `-Settings @{ 'enable-nuclear-tests' = $false }`.
+  `craters`, `globals`, `savedglobals` and `achieve`; the comment above each in
+  `scripts/port-probe/control.lua` says what it does and what it needs to pass. `basic` is the one
+  for startup settings. A hashtable cannot pass through `-File`, so `-Settings` goes through
+  `-Command`, from the repository root:
+  `pwsh -Command './scripts/port-probe.ps1 -Probe basic -Settings @{ "enable-nuclear-tests" = $false }'`.
   `fixture` and `fixturesite` load the Continued fixture save in
   `scripts/port-probe/fixtures/` (see its `README.md`). **`achieve` opens a game window for about a
   minute**, because headless runs never report achievements.
@@ -76,15 +80,24 @@ optional integrations to test or drop, and how far to diverge from Continued bey
 From #17, through the spec (#18). These stay as Continued has them. Do not "fix" them without a
 new decision:
 
-- **`keep-atomic-bomb-without-changes`:** tested without `.value`, and a straight fix makes the
-  default delete `atomic-bomb`, which would vanish from saves silently.
-- **`nuke-self`:** nothing calls `nukedSelf`. It needs a design, not a fix.
-- **Menu simulations**, including the dead `enable-menu-backgrounds` setting.
-- **Birdshot:** no base-game warhead fits it.
-- **The stray `1`** in detonation recipes.
-- **`on_init` in `MushroomCloudInBuilt/control.lua`**, overwritten by the later registration.
-- **`originPos` in `atomic_weapon_hit`:** dormant without Space Exploration.
-- **Shotgun aiming:** no change to `force_clamp_to_max_range` or the `"position"` target type. With
+- **`keep-atomic-bomb-without-changes`:** tested without `.value` in
+  `true-nukes-refreshed/prototypes/nukes/data-nukes-technology.lua` and
+  `data-nukes-warheads-create.lua` beside it, and a straight fix makes the default delete
+  `atomic-bomb`, which would vanish from saves silently.
+- **`nuke-self`:** nothing calls `nukedSelf` (`true-nukes-refreshed/scripts/achievement-system.lua`).
+  It needs a design, not a fix.
+- **Menu simulations** (`true-nukes-refreshed/menu-simulations/`), including the dead
+  `enable-menu-backgrounds` setting.
+- **Birdshot** (`shotgun-shell-birdshot` in `warheads-refreshed/prototypes/basegame-weapontype-add.lua`):
+  no base-game warhead fits it.
+- **The stray `1`** in the detonation recipe's `test-pack` result, in
+  `true-nukes-refreshed/prototypes/nukes/data-nukes-buildings.lua`.
+- **`on_init` in `true-nukes-refreshed/MushroomCloudInBuilt/control.lua`**, overwritten by the
+  later registration.
+- **`originPos` in `atomic_weapon_hit`** (`true-nukes-refreshed/control.lua`): dormant without
+  Space Exploration.
+- **Shotgun aiming:** no change to `force_clamp_to_max_range` or the `"position"` target type
+  (`target_type` in `true-nukes-refreshed/prototypes/nukes/data-nukes-warheads-create.lua`). With
   a clear path every item hit. A shell going off on a tree in its path is the mod's design.
 
 The fix-or-keep rule from the spec still applies to anything new: fix a bug only if the intent is
