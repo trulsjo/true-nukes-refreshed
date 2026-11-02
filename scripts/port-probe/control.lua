@@ -10,9 +10,10 @@ end
 
 local function surface() return game.surfaces[1] end
 
-local function generate(position, radius_chunks)
-  surface().request_to_generate_chunks(position, radius_chunks or 2)
-  surface().force_generate_chunk_requests()
+local function generate(position, radius_chunks, on)
+  on = on or surface()
+  on.request_to_generate_chunks(position, radius_chunks or 2)
+  on.force_generate_chunk_requests()
 end
 
 local function player()
@@ -55,11 +56,14 @@ end
 -- Each probe returns a list of {tick, function}. A function may call finish.
 local probes = {}
 
--- Generated shotgun ammo fired from gun turrets at worms, one turret per item, far apart, with every
--- tree within 30 tiles and every enemy within 60 tiles of the turret removed first. A pass needs, for every item, the worm damaged
--- or killed and a hit within 4 tiles of the worm: a blast at the turret can reach a worm 14 tiles
--- away, so damage alone does not show the shot got there. A worm can die with no damage event,
--- because the crater script removes entities itself.
+-- Generated shotgun ammo fired from gun turrets at worms, one turret per item, far apart. A pass
+-- needs, for every item, the worm damaged or killed and a hit within 4 tiles of the worm: a blast
+-- at the turret can reach a worm 14 tiles away, so damage alone does not show the shot got there.
+-- A worm can die with no damage event, because the crater script removes entities itself.
+-- It runs on a surface of its own made only of lab tiles, so there are no trees, rocks, water or
+-- enemy bases: on the random default map a turret took a closer enemy, or a shell went off on a
+-- tree in its path, and the run failed for reasons that are not the shell's. The probe's own worm
+-- is the only enemy each turret can see.
 probes.shotgunclear = function()
   local items = {}
   for name, _ in pairs(prototypes.item) do
@@ -70,19 +74,18 @@ probes.shotgunclear = function()
   local spots = {}
   return {
     {1, function()
+      local lab = game.create_surface("tn-port-probe-lab")
+      lab.generate_with_lab_tiles = true
       for i, name in pairs(items) do
         local pos = {x = i * 700, y = 0}
-        generate(pos, 2)
-        for _, t in pairs(surface().find_entities_filtered{type = "tree", position = pos, radius = 30}) do t.destroy() end
-        -- A turret shoots the closest enemy, so any other enemy near it takes the shot.
-        local enemies = surface().find_entities_filtered{force = "enemy", position = pos, radius = 60}
-        for _, e in pairs(enemies) do e.destroy() end
-        local turret = surface().create_entity{name = "gun-turret", position = pos, force = "player"}
+        generate(pos, 2, lab)
+        local turret = lab.create_entity{name = "gun-turret", position = pos, force = "player"}
         local inserted = turret.insert{name = name, count = 10}
-        local worm = surface().create_entity{name = "small-worm-turret", position = {pos.x + 14, pos.y}, force = "enemy"}
+        local worm = lab.create_entity{name = "small-worm-turret", position = {pos.x + 14, pos.y}, force = "enemy"}
         storage.worm_damage[worm.unit_number] = 0
         spots[i] = {name = name, pos = pos, turret = turret, worm = worm, unit = worm.unit_number, inserted = inserted}
-        say("placed", name, "inserted", inserted, "worm", worm.valid, "enemies cleared", #enemies)
+        say("placed", name, "inserted", inserted, "worm", worm.valid,
+          "other entities", lab.count_entities_filtered{position = pos, radius = 60} - 2)
       end
     end},
     {900, function()
