@@ -55,12 +55,21 @@ weaponTypes["shotgun-shell-buckshot"]= {
 }
 -- The action that fires the pellets. In 2.0 it is action[2]. Factorio 2.1 gives
 -- piercing-shotgun-shell one action, whose instant delivery fires the pellets from an area action
--- nested in its target_effects.
+-- nested in its target_effects. action_delivery and target_effects may each be one table or an
+-- array of them, as find_nested_projectile_delivery
+-- (warheads-refreshed/prototypes/weapontype-sanitise.lua) accepts.
 local function shotgunPelletAction(item)
   local actions = item.ammo_type.action
   if actions[2] then return actions[2] end
-  local effects = actions[1].action_delivery.target_effects
-  if effects and effects.type == "nested-result" then return effects.action end
+  local deliveries = actions[1].action_delivery or {}
+  if deliveries.type then deliveries = {deliveries} end
+  for _, delivery in pairs(deliveries) do
+    local effects = delivery.target_effects or {}
+    if effects.type then effects = {effects} end
+    for _, effect in pairs(effects) do
+      if effect.type == "nested-result" then return effect.action end
+    end
+  end
   return actions[1]
 end
 shotgunPelletAction(weaponTypes["shotgun-shell-buckshot"].item).repeat_count = 6
