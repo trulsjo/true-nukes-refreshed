@@ -46,7 +46,7 @@ local function fire_damage_entity(surface, entity, force, cause, killPlanes)
   end
 end
 
--- Every RailPrototype type in Factorio 2.0 and 2.1, legacy and elevated ones included.
+-- Every RailPrototype type in Factorio 2.0 and 2.1.24, legacy and elevated ones included.
 local rail_types = {
   ["straight-rail"] = true, ["curved-rail-a"] = true, ["curved-rail-b"] = true, ["half-diagonal-rail"] = true,
   ["legacy-straight-rail"] = true, ["legacy-curved-rail"] = true, ["rail-ramp"] = true,
