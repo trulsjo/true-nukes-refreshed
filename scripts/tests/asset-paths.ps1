@@ -8,9 +8,11 @@
     only a game with a window refuses it (#30). This reads the Lua instead: each quoted path
     that names one of the three mods must be a file under that mod's directory. It runs no game.
 
-    What it cannot see: a path built at run time, such as text_location .. "text_" .. text, and a
+    What it cannot see: a path built at run time, such as text_location .. "text_" .. text; a
+    path joined from two literals, such as "__warheads-refreshed__/graphics/" .. "x.png"; and a
     file whose name differs only in case, which Windows finds. Paths into other mods (__base__,
-    __core__, the dormant integrations) are counted and skipped.
+    __core__, the dormant integrations) are counted and skipped. Commented-out Lua is read like
+    any other, so a dead path to a missing file fails too.
 
 .PARAMETER Root
     The directory holding the three mod directories. Defaults to the repository root.

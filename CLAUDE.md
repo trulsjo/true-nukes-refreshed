@@ -50,9 +50,10 @@ from a PowerShell profile, and one started from Git Bash can print errors before
 - **`pwsh -NoProfile -File scripts/load-check.ps1`** loads the three mods and creates a map: every
   prototype validates and every `on_init` runs. It runs no ticks. It first runs
   `scripts/tests/asset-paths.ps1`, which fails if a literal `__mod__/` image or sound path in the
-  Lua names no file, since the game here loads none (#30). `-Check scripts/tests/shotgun-items.ps1`
-  also requires the six generated shotgun items. `scripts/tests/recipe-category.ps1` loads
-  Warheads alone under a mod that sets `recipe_category`.
+  Lua names no file, since a headless load loads none (#30).
+  `-Check scripts/tests/shotgun-items.ps1` also requires the six generated shotgun items.
+  `scripts/tests/recipe-category.ps1` loads Warheads alone under a mod that sets
+  `recipe_category`.
 - **`pwsh -NoProfile -File scripts/port-probe.ps1 -Probe <name>`** runs one in-game probe under
   `--test-scenario`, which gives the game a player and runs ticks. It passes on
   `PROBE RESULT PASS`. The probes are `testsite`, `testsite15`, `fusionsite`, `shotgunclear`,
