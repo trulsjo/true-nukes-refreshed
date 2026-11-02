@@ -84,7 +84,9 @@ new decision:
   `true-nukes-refreshed/prototypes/nukes/data-nukes-technology.lua` and
   `data-nukes-warheads-create.lua` beside it, and a straight fix makes the default delete
   `atomic-bomb`, which would vanish from saves silently.
-- **`nuke-self`:** nothing calls `nukedSelf` (`true-nukes-refreshed/scripts/achievement-system.lua`).
+- **`nuke-self`:** left unchanged. `nukedSelf` (`true-nukes-refreshed/scripts/achievement-system.lua`)
+  is called from `full_fireball` (`true-nukes-refreshed/scripts/fireball-system.lua`), so the spec's
+  "nothing calls it" was wrong. Whether a real blast unlocks it has not been measured.
   It needs a design, not a fix.
 - **Menu simulations** (`true-nukes-refreshed/menu-simulations/`), including the dead
   `enable-menu-backgrounds` setting.
