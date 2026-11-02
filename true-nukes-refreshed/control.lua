@@ -223,7 +223,7 @@ local function atomic_weapon_hit_optimised(surface_index, source, position, crat
   
   local buildingCount = 0
   if(force)then
-    buildingCount = game.surfaces[surface_index].count_entities_filtered{force = force, type = {"furnace", "assembling-machine"}, limit = 200}
+    buildingCount = game.surfaces[surface_index].count_entities_filtered{force = force, type = {"furnace", "assembling-machine"}, limit = 1000}
   end
   
   if(not storage.blastWaves) then
