@@ -4,7 +4,9 @@
 
 .DESCRIPTION
     Exit 0 means every prototype validated, every on_init ran and a map was created. The harness
-    runs no ticks and loads no sprites or sounds; its own header says what it cannot see.
+    runs no ticks and loads no sprites or sounds; its own header says what it cannot see. So
+    tests/asset-paths.ps1 runs first, and the game does not start if a literal path in the Lua
+    names no file.
 
 .PARAMETER FactorioExe
     Path to factorio.exe. Defaults to the harness's own lookup: $env:FACTORIO_EXE, then Steam.
@@ -30,6 +32,10 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $harness = Join-Path $root 'vendor/grado-factorio-tools/scripts/load-harness.ps1'
 if (-not (Test-Path $harness)) { throw "No load harness at $harness. Run: git submodule update --init" }
+
+# The game loads no sprites or sounds here, so a path to a missing file is checked in the Lua.
+& (Join-Path $PSScriptRoot 'tests/asset-paths.ps1') -Root $root
+if ($LASTEXITCODE) { exit $LASTEXITCODE }
 
 $mods = @('true-nukes-refreshed', 'warheads-refreshed', 'true-nukes-graphics-refreshed') |
     ForEach-Object { Join-Path $root $_ }
