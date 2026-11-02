@@ -46,7 +46,6 @@ script.on_init(function()
       end
     end
   end
-  log("on_init found " .. #storage.nukeBuildings .. " nukeBuildings")
 end)
 
 

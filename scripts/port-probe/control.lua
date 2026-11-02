@@ -26,7 +26,7 @@ local function generate(position, radius_chunks, on)
   on.force_generate_chunk_requests()
 end
 
-local function player()
+local function player_with_character()
   local p = game.players[1]
   if p and not p.character then p.create_character() end
   return p
@@ -49,7 +49,8 @@ local function crater_tiles()
   return surface().count_tiles_filtered{name = {"nuclear-crater", "nuclear-deep", "nuclear-shallow", "nuclear-high"}}
 end
 
--- Fire a warhead's util projectile at a position, as building-system.lua does.
+-- Fire a warhead's util projectile at a position, as nukeBuildingDetonate in
+-- true-nukes-refreshed/scripts/building-system.lua does.
 local function detonate(name, position)
   generate(position, 2)
   local e = surface().create_entity{name = "warhead-util-projectile" .. name, position = {position.x - 1, position.y},
@@ -65,6 +66,10 @@ end
 
 -- Each probe returns a list of {tick, function}. A function may call finish.
 local probes = {}
+
+-- The generated shotgun items: two buckshot and four slug, the list scripts/tests/shotgun-items.ps1
+-- requires. Birdshot has none (CLAUDE.md, Left deliberately).
+local SHOTGUN_ITEMS = 6
 
 -- Generated shotgun ammo fired from gun turrets at worms, one turret per item, far apart. A pass
 -- needs, for every item, the worm damaged or killed and a hit within 4 tiles of the worm: a blast
@@ -99,7 +104,7 @@ probes.shotgunclear = function()
       end
     end},
     {900, function()
-      local ok = #items > 0
+      local ok = #items == SHOTGUN_ITEMS
       for _, s in pairs(spots) do
         local left = (s.turret.valid and s.turret.get_item_count(s.name)) or "turret-gone"
         local wx, hits, near_worm = s.pos.x + 14, {}, 0
@@ -117,7 +122,7 @@ probes.shotgunclear = function()
           "offsets from turret", table.concat(hits, " "))
         if (damage == 0 and s.worm.valid) or near_worm == 0 then ok = false end
       end
-      finish(ok, "every generated shotgun item damaged or killed its worm with a hit within 4 tiles of it")
+      finish(ok, "all " .. SHOTGUN_ITEMS .. " generated shotgun items damaged or killed their worm with a hit within 4 tiles of it")
     end},
   }
 end
@@ -130,7 +135,7 @@ local function test_site_probe(site, recipe, warhead, effect, tech, wait)
     return {
       {1, function()
         if tech then research_prerequisites(tech) end
-        local p = player()
+        local p = player_with_character()
         p.insert{name = "TN-warhead-20--1", count = 1}
         local pos = {x = 0, y = -200}
         generate(pos, 3)
@@ -166,7 +171,7 @@ local function big_probe(name, effect, ticks)
       {1, function()
         -- Only the owning mod may change a runtime-global setting; the runner sets its default.
         say("optimise-100kt", settings.global["optimise-100kt"].value)
-        player()
+        player_with_character()
         detonate(name, {x = 0, y = 0})
       end},
       {ticks, function()
@@ -208,10 +213,13 @@ local function fixture_sites()
 end
 
 -- What the save kept: both test sites, the warheads in the character and its corpse, research and
--- recipes. True Nukes logs the nukeBuildings count from on_init; port-probe.ps1 checks that line.
+-- recipes; and the two test sites True Nukes' on_init found, as nukeBuildings in its storage, read
+-- through getGlobal.
 probes.fixture = function()
   return {
     {1, function()
+      local tn_storage = remote.call("True-Nukes Scripts", "getGlobal")
+      local nuke_buildings = type(tn_storage) == "table" and tn_storage.nukeBuildings and #tn_storage.nukeBuildings or 0
       local sites = fixture_sites()
       local n_site, n_fusion = #sites["nuclear-test-site"], #sites["fusion-test-site"]
       local in_characters, in_corpses = 0, 0
@@ -234,10 +242,10 @@ probes.fixture = function()
       end
       say("fixture sites", n_site, n_fusion, "characters", #characters, "warheads", in_characters,
         "corpses", #corpses, "warheads", in_corpses, "research", researched .. "/" .. techs,
-        "recipes", recipes, "nuclear tiles", nuclear_tiles())
+        "recipes", recipes, "nuclear tiles", nuclear_tiles(), "nukeBuildings", nuke_buildings)
       finish(n_site == 1 and n_fusion == 1 and in_characters == 3 and in_corpses == 3
-        and researched == 200 and techs == 200 and recipes == 355,
-        "both test sites, 3 + 3 warheads, 200 of 200 finite research and 355 recipes kept")
+        and researched == 200 and techs == 200 and recipes == 355 and nuke_buildings == 2,
+        "both test sites, 3 + 3 warheads, 200 of 200 finite research and 355 recipes kept, and on_init found 2 nukeBuildings")
     end},
   }
 end
@@ -267,14 +275,20 @@ probes.fixturesite = function()
   }
 end
 
--- Blast damage to rails and flying vehicles (#24), through blast-system.lua's chunk_loaded with a
--- flat damage D: init_blast 0 and a blast_min_damage of D give every entity D, whatever its
--- distance. damage_entity then rolls math.random(d/2, 2d) on d = D, D/10 for a rail or D/2 for a
--- vehicle with no collision layers. With D = 40 an unreduced hit takes 20 to 80 and a rail's 2 to
--- 8, so one hit tells them apart; a flying vehicle's 10 to 40 overlaps, so vehicles are averaged.
+-- Blast damage to rails and flying vehicles (#24), through chunk_loaded in
+-- true-nukes-refreshed/scripts/blast-system.lua, with a flat damage D: init_blast 0 and a
+-- blast_min_damage of D give every entity D, whatever its distance. damage_entity then rolls
+-- math.random(d/2, 2d) on d = D, D/10 for a rail or D/2 for a vehicle with no collision layers.
+-- With D = 40 an unreduced hit takes 20 to 80 and a rail's 2 to 8, so one hit tells them apart; a
+-- flying vehicle's 10 to 40 overlaps, so vehicles are averaged.
 local RAIL_TYPES = {"straight-rail", "curved-rail-a", "curved-rail-b", "half-diagonal-rail",
   "legacy-straight-rail", "legacy-curved-rail", "rail-ramp", "elevated-straight-rail",
   "elevated-curved-rail-a", "elevated-curved-rail-b", "elevated-half-diagonal-rail"}
+-- Entity types with "rail" in the name that are not rails (2.1.24): the signals, the elevated rails'
+-- supports and the rails' corpse type. Any other such type fails the probe until it is put in one
+-- of the two lists, and in rail_types in true-nukes-refreshed/scripts/blast-system.lua if a rail.
+local NOT_RAIL_TYPES = {["rail-signal"] = true, ["rail-chain-signal"] = true, ["rail-support"] = true,
+  ["rail-remnants"] = true}
 
 probes.blastdamage = function()
   local D, HITS = 40, 40
@@ -308,15 +322,25 @@ probes.blastdamage = function()
   return {
     {1, function()
       local ok, i = true, 0
-      -- Every entity type the game knows with "rail" in it, to show the list covers them.
+      -- Every entity type the game knows with "rail" in it must be in RAIL_TYPES or NOT_RAIL_TYPES.
+      local listed = {}
+      for _, t in pairs(RAIL_TYPES) do listed[t] = true end
       local seen = {}
       for _, p in pairs(prototypes.entity) do
         if string.match(p.type, "rail") then seen[p.type] = (seen[p.type] or 0) + 1 end
       end
-      local seen_list = {}
-      for t, n in pairs(seen) do seen_list[#seen_list + 1] = t .. "=" .. n end
+      local seen_list, unlisted = {}, {}
+      for t, n in pairs(seen) do
+        seen_list[#seen_list + 1] = t .. "=" .. n
+        if not (listed[t] or NOT_RAIL_TYPES[t]) then unlisted[#unlisted + 1] = t end
+      end
       table.sort(seen_list)
+      table.sort(unlisted)
       say("rail-like types present", table.concat(seen_list, " "))
+      if #unlisted > 0 then
+        say("rail-like types in neither list", table.concat(unlisted, " "))
+        ok = false
+      end
 
       local tested = 0
       for _, t in pairs(RAIL_TYPES) do
@@ -359,36 +383,46 @@ probes.blastdamage = function()
       local split = 0.9375 * D
       if not (mean["tn-probe-car"] > split and mean["tn-probe-flying-car"] < split) then ok = false end
 
-      finish(ok, "every rail type takes a tenth of the blast; a vehicle with no collision layers takes half, an ordinary one all")
+      finish(ok, "every rail-like type is listed, every rail type takes a tenth of the blast; a vehicle with no collision layers takes half, an ordinary one all")
     end},
   }
 end
 
--- The crater tiles water can fill, each with what clearAllCraters turns it into: the deep ones into
--- deepwater, the crater ones into water, the shallow one into water-shallow. nuclear-high is the
--- raised rim, which water never fills, so clearAllCraters leaves it.
+-- The crater tiles water can fill, each with what clearAllCraters (true-nukes-refreshed/control.lua)
+-- turns it into: the deep ones into deepwater, the crater ones into water, the shallow one into
+-- water-shallow. These are the tiles the water healing in true-nukes-refreshed/scripts/water-system.lua
+-- (craterTypes0) fills, so they are the ones clearAllCraters restores.
 local fillable = {"nuclear-deep", "nuclear-deep-shallow-fill", "nuclear-deep-fill", "nuclear-crater",
   "nuclear-crater-shallow-fill", "nuclear-shallow"}
+-- The tiles a blast leaves that are permanent: water never fills them, so the healing and
+-- clearAllCraters both leave them. nuclear-high is the raised rim. nuclear-ground is the base game's
+-- scorched ground, which true-nukes-refreshed/scripts/crater-system.lua writes around the crater and
+-- under the rim; water-system.lua treats it as height 0 (it is not in waterDepths), like any land tile.
+local permanent = {"nuclear-high", "nuclear-ground"}
 
 local function tile_census(area)
-  local parts, total = {}, 0
+  local parts, fillable_total, permanent_counts = {}, 0, {}
   for _, name in pairs(fillable) do
     local n = surface().count_tiles_filtered{area = area, name = name}
     parts[#parts + 1] = name .. "=" .. n
-    total = total + n
+    fillable_total = fillable_total + n
   end
-  parts[#parts + 1] = "nuclear-high=" .. surface().count_tiles_filtered{area = area, name = "nuclear-high"}
-  return total, table.concat(parts, " ")
+  for _, name in pairs(permanent) do
+    permanent_counts[name] = surface().count_tiles_filtered{area = area, name = name}
+    parts[#parts + 1] = name .. "=" .. permanent_counts[name] .. "(permanent)"
+  end
+  return fillable_total, permanent_counts, table.concat(parts, " ")
 end
 
 -- A 20 t blast at the edge of a pond, so water runs into part of the crater and leaves both empty
 -- and filled crater tiles. Then clearAllCraters through the remote interface. A pass needs crater
--- tiles before, nuclear-crater-shallow-fill among them, and none of the fillable kinds after.
+-- tiles before, nuclear-crater-shallow-fill among them, and none of the fillable kinds after; and
+-- every permanent kind present before and its count unchanged after.
 probes.craters = function()
   local area = {{-60, -60}, {60, 60}}
   return {
     {1, function()
-      player()
+      player_with_character()
       generate({x = 0, y = 0}, 3)
       local water = {}
       for x = 3, 30 do for y = -30, 30 do water[#water + 1] = {name = "water", position = {x, y}} end end
@@ -396,31 +430,36 @@ probes.craters = function()
       detonate("-atomic-20t", {x = 0, y = 0})
     end},
     {1800, function()
-      local before, census = tile_census(area)
+      local before, permanent_before, census = tile_census(area)
       say("before", before, census)
       local shallow_fill = surface().count_tiles_filtered{area = area, name = "nuclear-crater-shallow-fill"}
       local ok, err = pcall(remote.call, "True-Nukes Scripts", "clearAllCraters", surface())
       say("clearAllCraters", ok, err or "")
-      local after, census_after = tile_census(area)
+      local after, permanent_after, census_after = tile_census(area)
       say("after", after, census_after)
-      finish(ok and before > 0 and shallow_fill > 0 and after == 0,
-        "clearAllCraters restored every fillable crater tile, nuclear-crater-shallow-fill included")
+      local kept = true
+      for _, name in pairs(permanent) do
+        if permanent_before[name] == 0 or permanent_after[name] ~= permanent_before[name] then kept = false end
+      end
+      finish(ok and before > 0 and shallow_fill > 0 and after == 0 and kept,
+        "clearAllCraters restored every fillable crater tile, nuclear-crater-shallow-fill included, "
+        .. "and left nuclear-high and nuclear-ground as they were")
     end},
   }
 end
 
--- getGlobal and setGlobal through the remote interface. True Nukes keeps allowAchievements in its
--- storage from control.lua on, so getGlobal must show it. Then a marker is added to that table and
+-- getGlobal and setGlobal (true-nukes-refreshed/control.lua) through the remote interface. True
+-- Nukes keeps allowAchievements in its storage from control.lua on, so getGlobal must show it. Then a marker is added to that table and
 -- handed back with setGlobal: a later getGlobal must show the marker with allowAchievements kept,
 -- and a blast after it must run on the replaced table without a script error. remote.call copies
 -- tables, so this sees the contents of storage, not the table itself.
 probes.globals = function()
   return {
     {1, function()
-      player()
+      player_with_character()
       local got = remote.call("True-Nukes Scripts", "getGlobal")
       say("getGlobal", type(got), type(got) == "table" and tostring(got.allowAchievements) or "")
-      storage.got_live = type(got) == "table" and got.allowAchievements == true
+      storage.got_contents = type(got) == "table" and got.allowAchievements == true
       if type(got) ~= "table" then return end
       got.tn_probe_marker = 23
       remote.call("True-Nukes Scripts", "setGlobal", got)
@@ -434,8 +473,53 @@ probes.globals = function()
       local again = remote.call("True-Nukes Scripts", "getGlobal")
       local marker = type(again) == "table" and again.tn_probe_marker
       say("after blast", "marker", tostring(marker), "effects", effects_named("Atomic Weapon hit 20t"), "crater", crater_tiles())
-      finish(storage.got_live and storage.set_kept and marker == 23 and effects_named("Atomic Weapon hit 20t") > 0,
-        "getGlobal returned storage, and setGlobal replaced it with the blast still running")
+      finish(storage.got_contents and storage.set_kept and marker == 23 and effects_named("Atomic Weapon hit 20t") > 0,
+        "getGlobal showed the contents of storage, allowAchievements included, and the contents setGlobal handed back were kept with a blast running")
+    end},
+  }
+end
+
+-- setGlobal over a save and reload. game.reload_mods acts, for every mod, like saving and loading:
+-- storage is serialised, each mod's Lua state is rebuilt from control.lua, and on_load runs. A test
+-- run cannot save to disk: game.auto_save wrote no file under --test-scenario on 2.1.24.
+-- The first pass hands True Nukes a copy of its storage with a marker added, through setGlobal, and
+-- reloads. This mod's state is rebuilt too, so the probe starts again, and storage.reloaded says
+-- which pass it is. The second pass reads True Nukes' storage back through getGlobal: the marker
+-- must be there with allowAchievements kept, and a blast must run on it without a script error.
+-- remote.call copies tables, so this sees the contents of the reloaded storage, not the table.
+local SAVED_GLOBALS_MARKER = 2323
+
+probes.savedglobals = function()
+  if not storage.reloaded then
+    return {
+      {1, function()
+        player_with_character()
+        local contents = remote.call("True-Nukes Scripts", "getGlobal")
+        if type(contents) ~= "table" then return finish(false, "getGlobal returned " .. type(contents)) end
+        contents.tn_probe_saved_marker = SAVED_GLOBALS_MARKER
+        remote.call("True-Nukes Scripts", "setGlobal", contents)
+        local again = remote.call("True-Nukes Scripts", "getGlobal")
+        say("before reload", "marker", tostring(again.tn_probe_saved_marker), "allowAchievements", tostring(again.allowAchievements))
+        storage.reloaded = true
+        game.reload_mods()
+      end},
+    }
+  end
+  return {
+    {1, function()
+      local contents = remote.call("True-Nukes Scripts", "getGlobal")
+      local marker = type(contents) == "table" and contents.tn_probe_saved_marker
+      local allow = type(contents) == "table" and contents.allowAchievements
+      say("after reload", "tick", game.tick, "marker", tostring(marker), "allowAchievements", tostring(allow))
+      storage.reload_kept = marker == SAVED_GLOBALS_MARKER and allow == true
+      detonate("-atomic-20t", {x = 0, y = 0})
+    end},
+    {600, function()
+      local contents = remote.call("True-Nukes Scripts", "getGlobal")
+      local marker = type(contents) == "table" and contents.tn_probe_saved_marker
+      say("after blast", "marker", tostring(marker), "effects", effects_named("Atomic Weapon hit 20t"))
+      finish(storage.reload_kept and marker == SAVED_GLOBALS_MARKER and effects_named("Atomic Weapon hit 20t") > 0,
+        "the contents setGlobal handed True Nukes, marker and allowAchievements, survived game.reload_mods, and a blast ran on them")
     end},
   }
 end
@@ -454,7 +538,7 @@ probes.basic = function()
         counts[#counts + 1] = t .. "=" .. n
       end
       say("generated", table.concat(counts, " "))
-      player()
+      player_with_character()
       if prototypes.entity["warhead-util-projectile-atomic-2t"] then detonate("-atomic-2t", {x = 200, y = 0}) end
       if prototypes.entity["warhead-util-projectile-thermobaric-1"] then detonate("-thermobaric-1", {x = -200, y = 0}) end
     end},
@@ -477,7 +561,7 @@ probes.achieve = function()
   local site
   return {
     {1, function()
-      local p = player()
+      local p = player_with_character()
       say("cheat_mode", p.cheat_mode, "controller", p.controller_type)
       p.unlock_achievement("nuke-self")
       generate({x = 0, y = -60}, 2)
@@ -489,7 +573,7 @@ probes.achieve = function()
       say("nuclear-test-site", site and site.valid, "inserted", site.insert{name = "TN-warhead-20--1", count = 1})
     end},
     {1900, function()
-      local p = player()
+      local p = player_with_character()
       say("inserted in player", p.insert{name = "TN-warhead-20--1", count = 1})
       say("killing character", p.character and p.character.valid)
       p.character.die()
@@ -561,14 +645,16 @@ local function start()
   storage.start = game.tick
 end
 
--- Steps are closures, which storage cannot hold across a save. The test never saves.
-local steps
+-- Steps are closures, which storage cannot hold across a save, so they live in a local. A probe
+-- starts on the first tick of every Lua state: a run's first, and the one game.reload_mods builds
+-- (savedglobals).
+local steps, started
 
 script.on_event(defines.events.on_tick, function(event)
   -- Windowed, wait 300 ticks after the player joins: unlocks on the first tick after joining had
   -- no effect when the method was tried (#16).
   if windowed and not (storage.joined and event.tick >= storage.joined + 300) then return end
-  if not storage.effects then start() steps = storage.steps storage.steps = nil end
+  if not started then started = true start() steps = storage.steps storage.steps = nil end
   if not steps then return end
   local t = event.tick - storage.start
   for _, step in pairs(steps) do
