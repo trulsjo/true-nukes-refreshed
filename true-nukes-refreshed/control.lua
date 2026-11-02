@@ -467,7 +467,7 @@ local function clearAllCraters(surface)
   for _,t in pairs(surface.find_tiles_filtered({name={"nuclear-deep", "nuclear-deep-shallow-fill", "nuclear-deep-fill"}})) do
     table.insert(l, {position=t.position, name = "deepwater"});
   end
-  for _,t in pairs(surface.find_tiles_filtered({name={"nuclear-crater", "nuclear-crater-fill"}})) do
+  for _,t in pairs(surface.find_tiles_filtered({name={"nuclear-crater", "nuclear-crater-shallow-fill"}})) do
     table.insert(l, {position=t.position, name = "water"});
   end
   for _,t in pairs(surface.find_tiles_filtered({name={"nuclear-shallow"}})) do

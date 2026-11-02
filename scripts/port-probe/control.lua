@@ -170,6 +170,51 @@ probes.big2s15 = big_probe("-atomic-2-stage-15kt", "Atomic Weapon hit 15kt", 120
 probes.big100 = big_probe("-atomic-2-stage-100kt", "Atomic Weapon hit 100kt", 1200)
 probes.big1M = big_probe("-atomic-2-stage-1Mt", "Atomic Weapon hit 1Mt", 1200)
 
+-- The crater tiles water can fill, each with what clearAllCraters turns it into: the deep ones into
+-- deepwater, the crater ones into water, the shallow one into water-shallow. nuclear-high is the
+-- raised rim, which water never fills, so clearAllCraters leaves it.
+local fillable = {"nuclear-deep", "nuclear-deep-shallow-fill", "nuclear-deep-fill", "nuclear-crater",
+  "nuclear-crater-shallow-fill", "nuclear-shallow"}
+
+local function tile_census(area)
+  local parts, total = {}, 0
+  for _, name in pairs(fillable) do
+    local n = surface().count_tiles_filtered{area = area, name = name}
+    parts[#parts + 1] = name .. "=" .. n
+    total = total + n
+  end
+  parts[#parts + 1] = "nuclear-high=" .. surface().count_tiles_filtered{area = area, name = "nuclear-high"}
+  return total, table.concat(parts, " ")
+end
+
+-- A 20 t blast at the edge of a pond, so water runs into part of the crater and leaves both empty
+-- and filled crater tiles. Then clearAllCraters through the remote interface. A pass needs crater
+-- tiles before, nuclear-crater-shallow-fill among them, and none of the fillable kinds after.
+probes.craters = function()
+  local area = {{-60, -60}, {60, 60}}
+  return {
+    {1, function()
+      player()
+      generate({x = 0, y = 0}, 3)
+      local water = {}
+      for x = 3, 30 do for y = -30, 30 do water[#water + 1] = {name = "water", position = {x, y}} end end
+      surface().set_tiles(water)
+      detonate("-atomic-20t", {x = 0, y = 0})
+    end},
+    {1800, function()
+      local before, census = tile_census(area)
+      say("before", before, census)
+      local shallow_fill = surface().count_tiles_filtered{area = area, name = "nuclear-crater-shallow-fill"}
+      local ok, err = pcall(remote.call, "True-Nukes Scripts", "clearAllCraters", surface())
+      say("clearAllCraters", ok, err or "")
+      local after, census_after = tile_census(area)
+      say("after", after, census_after)
+      finish(ok and before > 0 and shallow_fill > 0 and after == 0,
+        "clearAllCraters restored every fillable crater tile, nuclear-crater-shallow-fill included")
+    end},
+  }
+end
+
 -- A short run for settings variants: count what was generated, set off two small warheads if they
 -- exist. It passes if the game loads and runs 600 ticks without a script error.
 probes.basic = function()
