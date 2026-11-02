@@ -119,10 +119,12 @@ try {
         }
         # With the default video-memory-usage=all, a window asks for about 1.9 GB of VRAM. On a
         # 6 GB card, a third window open at once stalls after "Parallel sprite loader initialized"
-        # and cannot be closed until the others free theirs. low lets three load.
-        Add-Content (Join-Path $harness.Temp 'factorio-config.ini') "[graphics]`nvideo-memory-usage=low"
+        # and cannot be closed until the others free theirs. low lets three load only when the other
+        # windows use low too: beside two at the default, this one still stalls.
+        $config = Join-Path $harness.Temp 'factorio-config.ini'
+        Add-Content $config "[graphics]`nvideo-memory-usage=low"
         $outFile = Join-Path $harness.Temp 'achieve-stdout.txt'
-        $line = (@('--config', (Join-Path $harness.Temp 'factorio-config.ini'), '--mod-directory', $harness.ModDirectory,
+        $line = (@('--config', $config, '--mod-directory', $harness.ModDirectory,
                 '--load-game', $save, '--disable-audio', '--window-size', '1280x720', '--disable-migration-window') |
             ForEach-Object { ConvertTo-NativeArgument $_ }) -join ' '
         $proc = Start-Process -FilePath $harness.FactorioExe -ArgumentList $line -PassThru -NoNewWindow `
