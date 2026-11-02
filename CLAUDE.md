@@ -54,14 +54,14 @@ the player's own mods, saves and settings are neither read nor written. They nee
   `--test-scenario`, which gives the game a player and runs ticks. It passes on
   `PROBE RESULT PASS`. The probes are `testsite`, `testsite15`, `fusionsite`, `shotgunclear`,
   `big15`, `big2s15`, `big100`, `big1M`, `blastdamage`, `basic`, `fixture`, `fixturesite`,
-  `craters`, `globals`, `savedglobals` and `achieve`; the comment above each in
+  `craters`, `globals`, `savedglobals`, `achieve` and `achievecheat`; the comment above each in
   `scripts/port-probe/control.lua` says what it does and what it needs to pass. `basic` is the one
   for startup settings. A hashtable cannot pass through `-File`, so `-Settings` goes through
   `-Command`, from the repository root:
   `pwsh -Command './scripts/port-probe.ps1 -Probe basic -Settings @{ "enable-nuclear-tests" = $false }'`.
   `fixture` and `fixturesite` load the Continued fixture save in
-  `scripts/port-probe/fixtures/` (see its `README.md`). **`achieve` opens a game window for about a
-  minute**, because headless runs never report achievements.
+  `scripts/port-probe/fixtures/` (see its `README.md`). **`achieve` and `achievecheat` each open a game
+  window for about a minute**, because headless runs never report achievements.
 - **`scripts/freeze-time.ps1`** times a 15 kt blast's freeze on 2.0 with Continued against 2.1 with
   these mods (#25). It needs a 2.0 install and the Continued zips, and **takes hours**: run it only
   to re-measure. Its numbers are on #25, and the slowdown it found is open as #29.

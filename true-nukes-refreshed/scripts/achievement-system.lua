@@ -104,10 +104,12 @@ end
 
 
 local function checkInvForNukes(event)
+  checkAllowAchievements();
+  if(not storage.allowAchievements) then return end
   local player = game.players[event.player_index]
   if(player.get_main_inventory()) then
   for _,item in pairs(player.get_main_inventory().get_contents()) do
-    if(string.match(item.name, "TN%-warhead.*") or string.match(item.name, ".*-atomic-.*")) then
+    if(string.match(item.name, "TN%-warhead.*") or string.match(item.name, "%-atomic%-")) then
       player.unlock_achievement("lose-nuke")
       return;
     end

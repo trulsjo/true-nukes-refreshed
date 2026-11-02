@@ -17,16 +17,16 @@
     The port was proved with these probes on Factorio 2.1.24, which added --test-scenario. Set
     $env:FACTORIO_EXE to that build.
 
-    achieve is the exception: achievements need a real game, so it creates a new save in the
-    harness's write-data directory and loads it in a window, which stays open on the machine for
-    about a minute while the game loads its graphics and runs. The runner closes the window once
+    achieve and achievecheat are the exception: achievements need a real game, so each creates a
+    new save in the harness's write-data directory and loads it in a window, which stays open on
+    the machine for about a minute while the game loads its graphics and runs. The runner closes the window once
     the probe has printed its result; the probe also writes its lines to script-output/probe.txt,
     because the game buffers stdout.
 
 .PARAMETER Probe
     The probe's name, passed as --test-arg: testsite, testsite15, fusionsite, shotgunclear, big15,
     big2s15, big100, big1M, blastdamage, basic, fixture, fixturesite, craters, globals,
-    savedglobals; or achieve, which runs windowed. The comment above each probe in
+    savedglobals; or achieve and achievecheat, which run windowed. The comment above each probe in
     port-probe/control.lua says what it does and what it needs to pass.
 
     fixture and fixturesite load the Continued fixture save (port-probe/fixtures) with --test-save
@@ -93,8 +93,8 @@ if ($Probe -in 'fixture', 'fixturesite') {
     $scenario = @('--test-save', (Join-Path $probeCopy 'tn-continued-fixture.zip'))
 }
 
-$windowed = $Probe -eq 'achieve'
-if ($windowed) { 'return true' | Set-Content (Join-Path $probeCopy 'tn-port-probe/windowed.lua') }
+$windowed = $Probe -in 'achieve', 'achievecheat'
+if ($windowed) { "return `"$Probe`"" | Set-Content (Join-Path $probeCopy 'tn-port-probe/windowed.lua') }
 
 $mods = @('true-nukes-refreshed', 'warheads-refreshed', 'true-nukes-graphics-refreshed' |
     ForEach-Object { Join-Path $root $_ }) + (Join-Path $probeCopy 'tn-port-probe')

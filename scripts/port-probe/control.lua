@@ -5,8 +5,11 @@
 -- The blast module's own exports, driven directly by the blastdamage probe.
 local blast_system = require("__true-nukes-refreshed__/scripts/blast-system")
 
--- port-probe.ps1 writes windowed.lua into the achieve run's copy of this mod; no other run has it.
-local windowed = pcall(require, "windowed")
+-- port-probe.ps1 writes windowed.lua, which returns the probe's name, into the copy of this mod
+-- for a windowed run (achieve, achievecheat); no other run has it. windowed_probe is that
+-- name, or nil.
+local has_windowed, windowed_probe = pcall(require, "windowed")
+if not has_windowed then windowed_probe = nil end
 
 local function say(...)
   -- select keeps nil arguments, which pairs over {...} would skip.
@@ -16,7 +19,7 @@ local function say(...)
   print(line)
   -- A windowed game buffers stdout, and the runner kills it, so the tail of stdout is lost. The
   -- runner reads this file in script-output instead.
-  if windowed then helpers.write_file("probe.txt", line .. "\n", true) end
+  if windowed_probe then helpers.write_file("probe.txt", line .. "\n", true) end
 end
 
 local function surface() return game.surfaces[1] end
@@ -590,8 +593,32 @@ probes.achieve = function()
   }
 end
 
+-- lose-nuke must stay locked once cheat mode has turned True Nukes' achievements off (#34). Run
+-- windowed and on its own save, because turning achievements off lasts for the save: achieve
+-- shows the same death unlocks lose-nuke when they are allowed. detonate-1Gt, unlocked from
+-- on_pre_player_died below, is the control that unlocks made at this death still arrive.
+probes.achievecheat = function()
+  return {
+    {1, function()
+      local p = player_with_character()
+      p.cheat_mode = true
+      say("cheat_mode", p.cheat_mode, "inserted in player", p.insert{name = "TN-warhead-20--1", count = 1})
+    end},
+    {60, function()
+      local p = player_with_character()
+      say("killing character", p.character and p.character.valid)
+      p.character.die()
+    end},
+    {260, function()
+      local control, lost = storage.achievements["detonate-1Gt"], storage.achievements["lose-nuke"]
+      say("detonate-1Gt", control, "lose-nuke", lost)
+      finish(control and not lost, "with cheat mode on, the death unlocked detonate-1Gt and not lose-nuke")
+    end},
+  }
+end
+
 script.on_init(function()
-  if windowed and remote.interfaces["freeplay"] then
+  if windowed_probe and remote.interfaces["freeplay"] then
     -- The crash-site intro takes the character away for a cutscene.
     remote.call("freeplay", "set_disable_crashsite", true)
     remote.call("freeplay", "set_skip_intro", true)
@@ -599,7 +626,7 @@ script.on_init(function()
 end)
 
 script.on_event(defines.events.on_player_joined_game, function(event)
-  if windowed and not storage.joined then
+  if windowed_probe and not storage.joined then
     storage.joined = event.tick
     say("joined", event.tick)
   end
@@ -616,12 +643,12 @@ script.on_event(defines.events.on_pre_player_died, function(event)
   local parts = {}
   for _, item in pairs(inv and inv.get_contents() or {}) do parts[#parts + 1] = item.name .. "x" .. item.count end
   say("pre_player_died", "main inventory", inv and #inv, table.concat(parts, ","))
-  if windowed then p.unlock_achievement("detonate-1Gt") end
+  if windowed_probe then p.unlock_achievement("detonate-1Gt") end
 end)
 
 script.on_event(defines.events.on_player_died, function(event)
   say("died", "tick", event.tick, "finished", game.finished)
-  if windowed then game.set_game_state{game_finished = false, can_continue = true} end
+  if windowed_probe then game.set_game_state{game_finished = false, can_continue = true} end
 end)
 
 script.on_event(defines.events.on_achievement_gained, function(event)
@@ -634,7 +661,7 @@ local function start()
   storage.effects = {}
   storage.worm_damage = {}
   storage.achievements = storage.achievements or {}
-  local arg = windowed and "achieve" or script.test_arg
+  local arg = windowed_probe or script.test_arg
   say("arg", arg, "tick", game.tick, "players", #game.players)
   local probe = arg and probes[arg]
   if not probe then
@@ -654,7 +681,7 @@ local steps, started
 script.on_event(defines.events.on_tick, function(event)
   -- Windowed, wait 300 ticks after the player joins: unlocks on the first tick after joining had
   -- no effect when the method was tried (#16).
-  if windowed and not (storage.joined and event.tick >= storage.joined + 300) then return end
+  if windowed_probe and not (storage.joined and event.tick >= storage.joined + 300) then return end
   if not started then started = true start() steps = storage.steps storage.steps = nil end
   if not steps then return end
   local t = event.tick - storage.start
