@@ -12,8 +12,9 @@ likely each item is to stop the load, because it feeds the spike.
 > directories were then `True-Nukes_Continued_0.3.36/`, `Warheads_Continued_0.0.21/` and
 > `True-Nukes-Graphics_Continued_0.0.3/`. #19 renamed them to the paths used below. What the
 > note says about the code is as of its date: most of the breaks it lists were fixed by the port
-> (#20 to #24), and the *Not checked* list predates those tickets. Each bug below that a ticket
-> fixed is marked **Fixed by #n** (#35); the text around the mark is still what was found.
+> (#20 to #24), and the *Not checked* list predates those tickets. The text of each bug below
+> that a ticket fixed starts with **Fixed by #n.** (#35); the text after the mark is still what
+> was found.
 
 - **Date:** 2026-10-31.
 - **Game checked:** 2.1.24 (build in `D:/SteamLibrary/steamapps/common/Factorio/`), base game
@@ -268,7 +269,7 @@ These load and run, but differ from 2.0.
 Each item was checked against the 2.0.77 docs. None of them stops the load on 2.1.24, as measured
 above. Most of them are dormant or silent.
 
-- **Fixed by #23. `global` in the remote interface.** `getGlobal` and `setGlobal` in
+- **Fixed by #23.** **`global` in the remote interface.** `getGlobal` and `setGlobal` in
   `true-nukes-refreshed/control.lua`, exported in `remote.add_interface("True-Nukes Scripts",
   …)`, read and write `global`. In 2.0 the persisted table is `storage` (factorio-data `2.0.77`
   changelog.txt, Version 2.0.7, section Scripting: "Renamed `global` into `storage`";
@@ -297,19 +298,20 @@ above. Most of them are dormant or silent.
     (2.0.77 changelog.txt, Version 2.0.7, section Scripting: "Changed LuaForce::evolution_factor …
     to `get_*` and `set_*` methods").
   - `moveBlast` checks `t=="curved-rail"`, as in the next item.
-- **Fixed by #24. Rail type names.** `damage_entity` in `true-nukes-refreshed/scripts/blast-system.lua`
-  cuts blast damage by ten for `t=="curved-rail"` and `"straight-rail"`. 2.0 renamed the 1.1 types
-  to `legacy-curved-rail` and `legacy-straight-rail` and added `curved-rail-a`, `curved-rail-b`,
-  `half-diagonal-rail` and the elevated rails (2.0.77 changelog.txt, Version 2.0.7, section
-  Modding). `straight-rail` still matches. *Inference*, from the code, not run: 2.0 curved,
-  half-diagonal and elevated rails take full damage. Silent.
-- **Fixed by #24. Collision mask as a dictionary.** In the same `damage_entity`, the car and spider-vehicle branch
-  halves damage when `next(entity.prototype.collision_mask)==nil`, meaning no layers, the 1.1
-  test for a flying vehicle. In 1.1 `CollisionMask` is a dictionary of layers
+- **Fixed by #24.** **Rail type names.** `damage_entity` in
+  `true-nukes-refreshed/scripts/blast-system.lua` cuts blast damage by ten for `t=="curved-rail"`
+  and `"straight-rail"`. 2.0 renamed the 1.1 types to `legacy-curved-rail` and
+  `legacy-straight-rail` and added `curved-rail-a`, `curved-rail-b`, `half-diagonal-rail` and the
+  elevated rails (2.0.77 changelog.txt, Version 2.0.7, section Modding). `straight-rail` still
+  matches. *Inference*, from the code, not run: 2.0 curved, half-diagonal and elevated rails take
+  full damage. Silent.
+- **Fixed by #24.** **Collision mask as a dictionary.** In the same `damage_entity`, the car and
+  spider-vehicle branch halves damage when `next(entity.prototype.collision_mask)==nil`, meaning no
+  layers, the 1.1 test for a flying vehicle. In 1.1 `CollisionMask` is a dictionary of layers
   (<https://lua-api.factorio.com/1.1.110/concepts.html#CollisionMask>). In 2.0 it is a table with a
   `layers` field and flags (<https://lua-api.factorio.com/2.0.77/concepts/CollisionMask.html>).
   *Inference*, from the docs, not run: `next` is never nil, so the halving never happens. Silent.
-- **Fixed by #23. `get_contents` as a dictionary.** `checkInvForNukes` in
+- **Fixed by #23.** **`get_contents` as a dictionary.** `checkInvForNukes` in
   `true-nukes-refreshed/scripts/achievement-system.lua` loops `for name,count in
   pairs(get_contents())` and matches `name` against `TN-warhead.*` and `.*-atomic-.*`. 2.0 returns
   an array of `{name, count, quality}` (2.0.77 changelog.txt, Version 2.0.7, section Scripting:
@@ -355,15 +357,15 @@ above. Most of them are dormant or silent.
 - **Space Age, and the optional integrations in the three `compatibility/` directories.** Out of
   scope, as above.
 - **Birdshot and cannon behaviour** (rank 1 and rank 7) are read from the code, not seen in-game.
-- **Not version changes, found in passing.** `clearAllCraters` in
+- **Not version changes, found in passing.** **Fixed by #23.** `clearAllCraters` in
   `true-nukes-refreshed/control.lua` names the tile `nuclear-crater-fill`, which no
   prototype defines, so it errors when called. The probe hit the same error with that name.
-  **Fixed by #23.**
   `settings.startup["keep-atomic-bomb-without-changes"]` is tested without `.value`, as
   `not settings.startup["keep-atomic-bomb-without-changes"]`, in
   `data-nukes-warheads-create.lua` and `data-nukes-technology.lua`. The setting object is always
   truthy, so the condition is always false and the block it guards never runs.
-  Both go back before 2.1 and are left for their own tickets.
+  Both go back before 2.1. The second is left as Continued has it (`CLAUDE.md`, *Left
+  deliberately*).
 - **Open, and not this note's to settle:** which of the three mods to carry forward, whether
   `Warheads` stays a separate mod, and whether its `recipe_category` field keeps its name (rank 3).
   These are among the decisions `CLAUDE.md` leaves to Truls. This note does not choose among them.
