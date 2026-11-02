@@ -53,7 +53,13 @@ from a PowerShell profile, and one started from Git Bash can print errors before
   Lua names no file, since a headless load loads none (#30).
   `-Check scripts/tests/shotgun-items.ps1` also requires the six generated shotgun items.
   `scripts/tests/recipe-category.ps1` loads Warheads alone under a mod that sets
-  `recipe_category`.
+  `recipe_category`. A data-stage stub is modelled on that mod, `scripts/tests/warheads-user/`,
+  but not on its dependency on `warheads-refreshed`, which loads it after Warheads. The stub's
+  check first asserts that the stub's input reached the generated prototype. A stub that must
+  load before Warheads declares `"dependencies": []` and has a name sorting before
+  `warheads-refreshed`. On 2.1.24 (#32), a stub declaring `base` and one declaring `[]` with a
+  name sorting after `warheads-refreshed` both loaded after it. That the stub with `[]` and a name
+  sorting first loaded before it was inferred from its check, not read from the log.
 - **`pwsh -NoProfile -File scripts/port-probe.ps1 -Probe <name>`** runs one in-game probe under
   `--test-scenario`, which gives the game a player and runs ticks. It passes on
   `PROBE RESULT PASS`. The probes are `testsite`, `testsite15`, `fusionsite`, `shotgunclear`,
