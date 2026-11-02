@@ -105,7 +105,7 @@ local function damage_entity(surface, distSq, ePos, power, fire, damage_init, bl
     damage = math.random(damage/2, damage*2)
     local calcDamage = damage;
     if(eProto.resistances and eProto.resistances.explosion) then
-      calcDamage = (calcDamage-eProto.resistances.explosion.decrease)*(1-eProto.resistances.explosion.percent)
+      calcDamage = math.max(0, (calcDamage-eProto.resistances.explosion.decrease)*(1-eProto.resistances.explosion.percent))
     end
     if((not entity.grid) and entity.health>calcDamage) then
       entity.health = entity.health-calcDamage
