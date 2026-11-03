@@ -39,7 +39,9 @@
     over as a string, so a run with -Settings goes through -Command, as in the example.
 
 .PARAMETER TestTicks
-    The most ticks the game runs before it gives up on the probe.
+    The most ticks the game runs before it gives up on the probe. A windowed run (achieve,
+    achievecheat) never passes it to the game: there it only sets how long the runner waits for
+    a PROBE RESULT line, TestTicks / 60 + 300 seconds.
 
 .PARAMETER KeepTemp
     Keep the harness's temp directory, with the captured output and log.
