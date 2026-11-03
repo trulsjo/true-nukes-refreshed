@@ -44,8 +44,11 @@ Set `FACTORIO_EXE` to the pinned **2.1.24 zip install, `D:\factorio-2.1\bin\x64\
 for every run. Steam can update its install, and the port probe needs `--test-scenario`, which is
 new in 2.1.24. All three scripts below run in the shared load harness's isolated directories, so
 the player's own mods, saves and settings are neither read nor written. They need
-`git submodule update --init`. The commands pass `-NoProfile` because the checks need nothing
-from a PowerShell profile, and one started from Git Bash can print errors before the script runs.
+`git submodule update --init`. A new worktree runs it again, since a worktree checks out its own
+copy of the submodule. `git config core.hooksPath .githooks`, from *Commit messages*, is once per
+clone: in a worktree it writes to the main checkout's shared `.git/config`, so it already covers
+every worktree. The commands pass `-NoProfile` because the checks need nothing from a PowerShell
+profile, and one started from Git Bash can print errors before the script runs.
 
 - **`pwsh -NoProfile -File scripts/load-check.ps1`** loads the three mods and creates a map: every
   prototype validates and every `on_init` runs. It runs no ticks. It first runs
