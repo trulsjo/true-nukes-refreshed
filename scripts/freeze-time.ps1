@@ -17,6 +17,9 @@
     the time lost against 60 UPS, the summed time over 16.7 ms of every tick in the window. FIRST,
     EVERY, COUNT and AFTER are the timer's, read from its start line in each log.
 
+    Each kept log ends with the free physical memory just before its session started, and the
+    script prints it per log: memory pressure slows ticks without a sign in the game's log.
+
     Exit 0 means every session ran and logged every blast's whole window. A session that did not
     stops the script with an error naming the session's log and the blast, and no table is printed.
 
@@ -108,6 +111,8 @@ function Invoke-Session([string] $Version, [string[]] $Arguments, [switch] $Crea
         # The save is base only: its mods are added when each session loads it.
         $disabled = if ($Create) { @($harness.Mods.Name) } else { @() }
         Write-HarnessModList -Harness $harness -Disabled $disabled
+        # Memory pressure slows a session without a sign in the game's log, so the kept log records it.
+        $freeMb = [math]::Round((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory / 1024)
         $result = Invoke-Factorio -FactorioExe $exe[$Version] -ModDirectory $harness.ModDirectory -Arguments $Arguments `
             -OutputDirectory $harness.Temp -Tag run
         $err = Get-FactorioErrorText -Result $result
@@ -115,6 +120,7 @@ function Invoke-Session([string] $Version, [string[]] $Arguments, [switch] $Crea
         if ($Tag) {
             $log = Join-Path $LogDirectory "$Tag.log"
             Copy-Item (Join-Path $harness.Temp 'write-data/factorio-current.log') $log
+            Add-Content $log "FREEZE-TIME free memory $freeMb MB at session start"
             $log
         }
     }
@@ -130,6 +136,8 @@ $results = @{}
 $after = $null
 function Read-Session([string] $Log) {
     $lines = Get-Content $Log
+    $memory = @($lines -match '^FREEZE-TIME free memory \d+ MB at session start')
+    Write-Host "  $(if ($memory) { $memory[0] -replace '^FREEZE-TIME ', '' } else { 'free memory not logged' })"
     # The timer's FIRST, EVERY, COUNT and AFTER, from its start line (freeze-timer/control.lua).
     if (-not ((@($lines -match 'FREEZE start ') -join "`n") -match 'version (\S+) first (\d+) every (\d+) count (\d+) after (\d+)')) {
         throw "No FREEZE start line with the timer's constants in $Log"
