@@ -46,8 +46,14 @@
 .PARAMETER LogDirectory
     Where each session's factorio-current.log is kept, named <version>-<mode>-<n>.log.
 
+.PARAMETER Logs
+    Session logs kept from earlier runs: the table is made from them, and no game is run.
+
 .EXAMPLE
     pwsh -File scripts/freeze-time.ps1 -Sessions 3
+
+.EXAMPLE
+    pwsh -File scripts/freeze-time.ps1 -Logs (Get-ChildItem $env:TEMP/tn-freeze-time-logs/*-headless-*.log)
 #>
 
 #Requires -Version 7
@@ -58,7 +64,8 @@ param(
     [string] $Factorio20Exe = 'D:\factorio-2.0\bin\x64\factorio.exe',
     [string] $ContinuedMods = 'D:\factorio-2.0\mods',
     [string] $Save = (Join-Path ([IO.Path]::GetTempPath()) 'tn-freeze-time.zip'),
-    [string] $LogDirectory = (Join-Path ([IO.Path]::GetTempPath()) 'tn-freeze-time-logs')
+    [string] $LogDirectory = (Join-Path ([IO.Path]::GetTempPath()) 'tn-freeze-time-logs'),
+    [string[]] $Logs
 )
 
 Set-StrictMode -Version Latest
@@ -69,8 +76,10 @@ $lib = Join-Path $root 'vendor/grado-factorio-tools/scripts/load-harness-lib.ps1
 if (-not (Test-Path $lib)) { throw "No load harness at $lib. Run: git submodule update --init" }
 . $lib
 $exe = @{ '2.0' = $Factorio20Exe; '2.1' = $env:FACTORIO_EXE }
-foreach ($v in $exe.Keys) { if (-not $exe[$v] -or -not (Test-Path $exe[$v])) { throw "No Factorio $v at '$($exe[$v])'" } }
-New-Item -ItemType Directory -Force $LogDirectory | Out-Null
+if (-not $Logs) {
+    foreach ($v in $exe.Keys) { if (-not $exe[$v] -or -not (Test-Path $exe[$v])) { throw "No Factorio $v at '$($exe[$v])'" } }
+    New-Item -ItemType Directory -Force $LogDirectory | Out-Null
+}
 
 # The timer mod, with the factorio_version of the game it runs on.
 function New-Timer([string] $Version) {
@@ -142,18 +151,20 @@ function Read-Session([string] $Log) {
     ($lines -match "FREEZE counts \d+ at $($after + 10) ") | ForEach-Object { Write-Host "  $($_ -replace '^.*FREEZE ', '')" }
 }
 
-if (-not (Test-Path $Save)) {
-    Write-Host "creating $Save on 2.0"
-    Invoke-Session -Version '2.0' -Create -Arguments @('--create', $Save, '--map-gen-seed', '20261102') | Out-Null
-}
-
-$run = if ($Mode -eq 'headless') { @('--benchmark', $Save, '--benchmark-ticks', '7500') }
-       else { @('--benchmark-graphics', $Save, '--benchmark-ticks', '7500', '--window-size', '1920x1080') }
-
-foreach ($n in 1..$Sessions) {
-    foreach ($v in '2.0', '2.1') {
-        Write-Host "$v $Mode session $n"
-        Read-Session (Invoke-Session -Version $v -Arguments $run -Tag "$v-$Mode-$n")
+if ($Logs) {
+    foreach ($log in $Logs) { Write-Host $log; Read-Session $log }
+} else {
+    if (-not (Test-Path $Save)) {
+        Write-Host "creating $Save on 2.0"
+        Invoke-Session -Version '2.0' -Create -Arguments @('--create', $Save, '--map-gen-seed', '20261102') | Out-Null
+    }
+    $run = if ($Mode -eq 'headless') { @('--benchmark', $Save, '--benchmark-ticks', '7500') }
+           else { @('--benchmark-graphics', $Save, '--benchmark-ticks', '7500', '--window-size', '1920x1080') }
+    foreach ($n in 1..$Sessions) {
+        foreach ($v in '2.0', '2.1') {
+            Write-Host "$v $Mode session $n"
+            Read-Session (Invoke-Session -Version $v -Arguments $run -Tag "$v-$Mode-$n")
+        }
     }
 }
 
@@ -167,5 +178,5 @@ foreach ($v in $results.Keys | Sort-Object) {
         Write-Host ('| {0} | {1} | {2} | {3} | {4} | {5} |' -f $v, $i, $blast.tick.Count, (Stats $blast.tick), (Stats $blast.freeze), (Stats $blast.lost))
     }
 }
-Write-Host "logs: $LogDirectory"
+if (-not $Logs) { Write-Host "logs: $LogDirectory" }
 exit 0
