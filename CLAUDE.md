@@ -79,7 +79,8 @@ from a PowerShell profile, and one started from Git Bash can print errors before
   runner waits, `TestTicks / 60 + 300` seconds.
 - **`scripts/freeze-time.ps1`** times a 15 kt blast's freeze on 2.0 with Continued against 2.1 with
   these mods (#25). It needs a 2.0 install and the Continued zips, and **takes hours**: run it only
-  to re-measure. Its numbers are on #25, and the slowdown it found is open as #29.
+  to re-measure. Its numbers are on #25 and #29, and the slowdown it found is open as #29. `-Logs`
+  remakes the table from kept session logs without the game.
 
 Headless runs load no sprites, sounds or lights, and nothing here measures how a blast looks.
 A claim about those needs a run with graphics.
