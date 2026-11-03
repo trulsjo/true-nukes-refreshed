@@ -44,13 +44,14 @@ Set `FACTORIO_EXE` to the pinned **2.1.24 zip install, `D:\factorio-2.1\bin\x64\
 for every run. Steam can update its install, and the port probe needs `--test-scenario`, which is
 new in 2.1.24. All three scripts below run in the shared load harness's isolated directories, so
 the player's own mods, saves and settings are neither read nor written. They need
-`git submodule update --init`.
+`git submodule update --init`. The commands pass `-NoProfile` because the checks need nothing
+from a PowerShell profile, and one started from Git Bash can print errors before the script runs.
 
-- **`pwsh -File scripts/load-check.ps1`** loads the three mods and creates a map: every prototype
+- **`pwsh -NoProfile -File scripts/load-check.ps1`** loads the three mods and creates a map: every prototype
   validates and every `on_init` runs. It runs no ticks. `-Check scripts/tests/shotgun-items.ps1`
   also requires the six generated shotgun items. `scripts/tests/recipe-category.ps1` loads
   Warheads alone under a mod that sets `recipe_category`.
-- **`pwsh -File scripts/port-probe.ps1 -Probe <name>`** runs one in-game probe under
+- **`pwsh -NoProfile -File scripts/port-probe.ps1 -Probe <name>`** runs one in-game probe under
   `--test-scenario`, which gives the game a player and runs ticks. It passes on
   `PROBE RESULT PASS`. The probes are `testsite`, `testsite15`, `fusionsite`, `shotgunclear`,
   `big15`, `big2s15`, `big100`, `big1M`, `blastdamage`, `basic`, `fixture`, `fixturesite`,
@@ -58,7 +59,7 @@ the player's own mods, saves and settings are neither read nor written. They nee
   `scripts/port-probe/control.lua` says what it does and what it needs to pass. `basic` is the one
   for startup settings. A hashtable cannot pass through `-File`, so `-Settings` goes through
   `-Command`, from the repository root:
-  `pwsh -Command './scripts/port-probe.ps1 -Probe basic -Settings @{ "enable-nuclear-tests" = $false }'`.
+  `pwsh -NoProfile -Command './scripts/port-probe.ps1 -Probe basic -Settings @{ "enable-nuclear-tests" = $false }'`.
   `fixture` and `fixturesite` load the Continued fixture save in
   `scripts/port-probe/fixtures/` (see its `README.md`). **`achieve` opens a game window for about a
   minute**, because headless runs never report achievements.
