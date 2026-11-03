@@ -81,7 +81,8 @@ from a PowerShell profile, and one started from Git Bash can print errors before
   these mods (#25). It needs a 2.0 install and the Continued zips, and **takes hours**: run it only
   to re-measure. Its numbers are on #25 and #29, and the slowdown it found is open as #29. `-Logs`
   remakes the table from kept session logs without the game, and `scripts/tests/freeze-time.ps1`
-  checks that reading on made-up logs in seconds.
+  checks that reading on made-up logs in seconds. Its wall times hold only on a machine with no
+  other Factorio running and memory to spare. On #33 each slowed a session without a sign in the log.
 
 Headless runs load no sprites, sounds or lights, and nothing here measures how a blast looks.
 A claim about those needs a run with graphics.
