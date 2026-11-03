@@ -117,10 +117,12 @@ try {
             Get-FactorioErrorText -Result $created | Select-Object -First 30 | ForEach-Object { Write-Host $_ }
             throw "--create failed with exit $($created.Code)"
         }
-        # With the default video-memory-usage=all, a window asks for about 1.9 GB of VRAM. On a
-        # 6 GB card, a third window open at once stalls after "Parallel sprite loader initialized"
-        # and cannot be closed until the others free theirs. video-memory-usage=low lets three load
-        # only when the other windows use low too: beside two at the default, this one still stalls.
+        # Both windowed probes, achieve and achievecheat, start at video-memory-usage=low. With the
+        # default video-memory-usage=all, Factorio 2.1.24 estimates 1737 MB of textures for these
+        # mods. On a 6 GB card, a third window open at once stalls after "Parallel sprite loader
+        # initialized" and cannot be closed until the others free theirs. video-memory-usage=low
+        # lets three load only when the other windows use low too: beside two at the default, this
+        # one still stalls.
         $config = Join-Path $harness.Temp 'factorio-config.ini'
         Add-Content $config "[graphics]`nvideo-memory-usage=low"
         $outFile = Join-Path $harness.Temp 'achieve-stdout.txt'
