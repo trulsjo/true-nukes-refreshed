@@ -9,11 +9,16 @@
     generated beforehand, with the camera 50 tiles away, and logs the wall time of each tick around
     them. Sessions alternate between the versions.
 
-    The table gives, per version and blast, the lower median and range over sessions of: the blast
-    tick, the longest run of ticks over 50 ms that starts the freeze, and the time lost against
-    60 UPS over the ticks logged after the blast. Exit 0 means every session ran and every blast
-    fired. The blast ticks, the blast count and the ticks logged after each blast are the timer's
-    FIRST, EVERY, COUNT and AFTER, read from its start line in the log.
+    The timer creates blast i's projectile on tick FIRST + (i - 1) * EVERY, counted from its first
+    tick, and the projectile hits on the tick after: the hit tick. Each blast's window is the AFTER
+    ticks from the hit tick on, the hit tick included. The table gives, per version and blast, the
+    lower median and range over sessions of: the hit tick; the freeze, the summed time of the
+    window's ticks over 50 ms up to the first tick after the hit tick that takes 50 ms or less; and
+    the time lost against 60 UPS, the summed time over 16.7 ms of every tick in the window. FIRST,
+    EVERY, COUNT and AFTER are the timer's, read from its start line in each log.
+
+    Exit 0 means every session ran and logged every blast's whole window. A session that did not
+    stops the script with an error naming the session's log and the blast, and no table is printed.
 
     What it cannot see: a blast where the ground is not yet generated (the mod then generates it in
     the blast tick, which is slower); a projectile fired from a weapon, which starts that generation
@@ -108,6 +113,35 @@ function Invoke-Session([string] $Version, [string[]] $Arguments, [switch] $Crea
     }
 }
 
+# Adds one session's log to $results, keyed by the game version on the timer's start line. Throws,
+# naming the log and the blast, if a blast was not fired or its window was not logged whole.
+$results = @{}
+function Read-Session([string] $Log) {
+    $lines = Get-Content $Log
+    # The timer's FIRST, EVERY, COUNT and AFTER, from its start line (freeze-timer/control.lua).
+    if (-not ((@($lines -match 'FREEZE start ') -join "`n") -match 'version (\S+) first (\d+) every (\d+) count (\d+) after (\d+)')) {
+        throw "No FREEZE start line with the timer's constants in $Log"
+    }
+    $v, $first, $every, $count = $Matches[1], [int]$Matches[2], [int]$Matches[3], [int]$Matches[4]
+    $script:after = [int]$Matches[5]
+    $rows = @(foreach ($l in $lines) {
+        if ($l -match 'FREEZE dt (\d+) (?:Duration|Elapsed): ([\d.]+) ?ms') { [pscustomobject]@{ t = [int]$Matches[1]; ms = [double]$Matches[2] } }
+    })
+    if (-not $results.ContainsKey($v)) { $results[$v] = @{} }
+    foreach ($i in 1..$count) {
+        if (-not ($lines -match "FREEZE fired $i at tick \d+ created")) { throw "$Log`: blast $i was not fired" }
+        $hit = $first + ($i - 1) * $every + 1
+        $window = @($rows | Where-Object { $_.t -ge $hit -and $_.t -lt $hit + $after })
+        if ($window.Count -ne $after) { throw "$Log`: blast $i logged $($window.Count) of its $after ticks from hit tick $hit" }
+        $freeze = 0
+        foreach ($row in $window) { if ($row.ms -gt 50) { $freeze += $row.ms } elseif ($row.t -gt $hit) { break } }
+        $lost = ($window | ForEach-Object { [math]::Max(0, $_.ms - 1000 / 60) } | Measure-Object -Sum).Sum
+        if (-not $results[$v].ContainsKey($i)) { $results[$v][$i] = @{ tick = @(); freeze = @(); lost = @() } }
+        $results[$v][$i].tick += $window[0].ms / 1000; $results[$v][$i].freeze += $freeze / 1000; $results[$v][$i].lost += $lost / 1000
+    }
+    ($lines -match "FREEZE counts \d+ at $($after + 10) ") | ForEach-Object { Write-Host "  $($_ -replace '^.*FREEZE ', '')" }
+}
+
 if (-not (Test-Path $Save)) {
     Write-Host "creating $Save on 2.0"
     Invoke-Session -Version '2.0' -Create -Arguments @('--create', $Save, '--map-gen-seed', '20261102') | Out-Null
@@ -116,34 +150,10 @@ if (-not (Test-Path $Save)) {
 $run = if ($Mode -eq 'headless') { @('--benchmark', $Save, '--benchmark-ticks', '7500') }
        else { @('--benchmark-graphics', $Save, '--benchmark-ticks', '7500', '--window-size', '1920x1080') }
 
-$results = @{ '2.0' = @{}; '2.1' = @{} }
-$ok = $true
 foreach ($n in 1..$Sessions) {
     foreach ($v in '2.0', '2.1') {
         Write-Host "$v $Mode session $n"
-        $log = Invoke-Session -Version $v -Arguments $run -Tag "$v-$Mode-$n"
-        $lines = Get-Content $log
-        # The timer's FIRST, EVERY, COUNT and AFTER, from its start line (freeze-timer/control.lua).
-        if (-not ((@($lines -match 'FREEZE start ') -join "`n") -match 'first (\d+) every (\d+) count (\d+) after (\d+)')) {
-            throw "No FREEZE start line with the timer's constants in $log"
-        }
-        $first, $every, $count, $after = [int]$Matches[1], [int]$Matches[2], [int]$Matches[3], [int]$Matches[4]
-        $fired = @($lines -match 'FREEZE fired \d+ at tick \d+ created').Count
-        if ($fired -ne $count) { Write-Host "  only $fired of $count blasts fired"; $ok = $false }
-        $rows = foreach ($l in $lines) {
-            if ($l -match 'FREEZE dt (\d+) (?:Duration|Elapsed): ([\d.]+) ?ms') { [pscustomobject]@{ t = [int]$Matches[1]; ms = [double]$Matches[2] } }
-        }
-        foreach ($i in 1..$count) {
-            $blastTick = $first + ($i - 1) * $every
-            $post = @($rows | Where-Object { $_.t -ge $blastTick -and $_.t -le $blastTick + $after })
-            $tick = @($post | Where-Object t -eq ($blastTick + 1) | ForEach-Object ms)[0]
-            $stall = 0
-            foreach ($row in $post) { if ($row.ms -gt 50) { $stall += $row.ms } elseif ($row.t -gt $blastTick + 1) { break } }
-            $lost = ($post | ForEach-Object { [math]::Max(0, $_.ms - 1000 / 60) } | Measure-Object -Sum).Sum
-            if (-not $results[$v].ContainsKey($i)) { $results[$v][$i] = @{ tick = @(); stall = @(); lost = @() } }
-            $results[$v][$i].tick += $tick / 1000; $results[$v][$i].stall += $stall / 1000; $results[$v][$i].lost += $lost / 1000
-        }
-        ($lines -match "FREEZE counts \d+ at $($after + 10) ") | ForEach-Object { Write-Host "  $($_ -replace '^.*FREEZE ', '')" }
+        Read-Session (Invoke-Session -Version $v -Arguments $run -Tag "$v-$Mode-$n")
     }
 }
 
@@ -151,11 +161,11 @@ function Stats($xs) { $s = @($xs | Sort-Object); '{0:N1} ({1:N1}-{2:N1})' -f $s[
 Write-Host ''
 Write-Host "| Version | Blast | Sessions | Blast tick, s | Freeze, s | Lost vs 60 UPS over $([math]::Round($after / 60)) s, s |"
 Write-Host '|---|---|---|---|---|---|'
-foreach ($v in '2.0', '2.1') {
-    foreach ($i in 1..$count) {
+foreach ($v in $results.Keys | Sort-Object) {
+    foreach ($i in $results[$v].Keys | Sort-Object) {
         $blast = $results[$v][$i]
-        Write-Host ('| {0} | {1} | {2} | {3} | {4} | {5} |' -f $v, $i, $blast.tick.Count, (Stats $blast.tick), (Stats $blast.stall), (Stats $blast.lost))
+        Write-Host ('| {0} | {1} | {2} | {3} | {4} | {5} |' -f $v, $i, $blast.tick.Count, (Stats $blast.tick), (Stats $blast.freeze), (Stats $blast.lost))
     }
 }
 Write-Host "logs: $LogDirectory"
-exit $(if ($ok) { 0 } else { 1 })
+exit 0
