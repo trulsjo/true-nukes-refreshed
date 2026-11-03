@@ -63,7 +63,8 @@ the player's own mods, saves and settings are neither read nor written. They nee
   `scripts/port-probe/fixtures/` (see its `README.md`). **`achieve` and `achievecheat` each open a
   game window for about a minute**, because headless runs never report achievements. Run them
   alone, with `-TestTicks 60000`: beside another Factorio window they time out without a PROBE
-  line, though the code is fine.
+  line, though the code is fine. Windowed, `-TestTicks` never reaches the game; it only sets how
+  long the runner waits, `TestTicks / 60 + 300` seconds.
 - **`scripts/freeze-time.ps1`** times a 15 kt blast's freeze on 2.0 with Continued against 2.1 with
   these mods (#25). It needs a 2.0 install and the Continued zips, and **takes hours**: run it only
   to re-measure. Its numbers are on #25, and the slowdown it found is open as #29.
