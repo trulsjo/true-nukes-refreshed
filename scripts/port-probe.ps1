@@ -101,6 +101,8 @@ if ($windowed) { "return `"$Probe`"" | Set-Content (Join-Path $probeCopy 'tn-por
 $mods = @('true-nukes-refreshed', 'warheads-refreshed', 'true-nukes-graphics-refreshed' |
     ForEach-Object { Join-Path $root $_ }) + (Join-Path $probeCopy 'tn-port-probe')
 $harness = New-LoadHarness -Mods $mods
+# Printed first, so a run can be told apart from other sessions' runs while it is still going.
+Write-Host "harness: $($harness.Temp)"
 $code = 1
 $proc = $null
 try {
