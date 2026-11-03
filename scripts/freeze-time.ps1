@@ -48,7 +48,8 @@
 
 .PARAMETER Logs
     Session logs kept from earlier runs, as paths or wildcards: the table is made from them, and no
-    game is run. Through -File only one value passes, so give several logs as one wildcard.
+    game is run. Through -File only one value passes, so give several logs as one wildcard. It is
+    an error if no log matches, or if the logs disagree on AFTER.
 
 .EXAMPLE
     pwsh -File scripts/freeze-time.ps1 -Sessions 3
@@ -126,6 +127,7 @@ function Invoke-Session([string] $Version, [string[]] $Arguments, [switch] $Crea
 # Adds one session's log to $results, keyed by the game version on the timer's start line. Throws,
 # naming the log and the blast, if a blast was not fired or its window was not logged whole.
 $results = @{}
+$after = $null
 function Read-Session([string] $Log) {
     $lines = Get-Content $Log
     # The timer's FIRST, EVERY, COUNT and AFTER, from its start line (freeze-timer/control.lua).
@@ -133,6 +135,10 @@ function Read-Session([string] $Log) {
         throw "No FREEZE start line with the timer's constants in $Log"
     }
     $v, $first, $every, $count = $Matches[1], [int]$Matches[2], [int]$Matches[3], [int]$Matches[4]
+    # The table's header and every window use one AFTER, so every log must share it.
+    if ($null -ne $script:after -and $script:after -ne [int]$Matches[5]) {
+        throw "$Log`: after $($Matches[5]), but the logs before it have after $script:after"
+    }
     $script:after = [int]$Matches[5]
     $rows = @(foreach ($l in $lines) {
         if ($l -match 'FREEZE dt (\d+) (?:Duration|Elapsed): ([\d.]+) ?ms') { [pscustomobject]@{ t = [int]$Matches[1]; ms = [double]$Matches[2] } }
@@ -153,7 +159,9 @@ function Read-Session([string] $Log) {
 }
 
 if ($Logs) {
-    foreach ($log in Get-ChildItem $Logs -File | Sort-Object Name) { Write-Host $log.Name; Read-Session $log.FullName }
+    $found = @(Get-ChildItem $Logs -File | Sort-Object Name)
+    if (-not $found) { throw "No log matches $($Logs -join ', ')" }
+    foreach ($log in $found) { Write-Host $log.Name; Read-Session $log.FullName }
 } else {
     if (-not (Test-Path $Save)) {
         Write-Host "creating $Save on 2.0"
