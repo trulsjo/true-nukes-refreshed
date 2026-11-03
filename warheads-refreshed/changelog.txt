@@ -7,6 +7,7 @@ Date: 2026-11-02
     - Renamed from Warheads_Continued to warheads-refreshed. It cannot run beside the Continued mods.
   Bugfixes:
     - Fixed buckshot and slug shotgun shells failing to load on Factorio 2.1.
+    - Fixed the rounds weapon appearance naming image files that do not exist. No weapon uses it yet.
   Modding:
     - recipe_category on a warhead or weapontype keeps its name, and is translated into the recipe's categories for Factorio 2.1.
   Info:
