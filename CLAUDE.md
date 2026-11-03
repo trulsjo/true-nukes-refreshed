@@ -53,13 +53,14 @@ from a PowerShell profile, and one started from Git Bash can print errors before
   Lua names no file, since a headless load loads none (#30).
   `-Check scripts/tests/shotgun-items.ps1` also requires the six generated shotgun items.
   `scripts/tests/recipe-category.ps1` loads Warheads alone under a mod that sets
-  `recipe_category`. A data-stage stub is modelled on that mod, `scripts/tests/warheads-user/`,
-  but not on its dependency on `warheads-refreshed`, which loads it after Warheads. The stub's
-  check first asserts that the stub's input reached the generated prototype. A stub that must
-  load before Warheads declares `"dependencies": []` and has a name sorting before
-  `warheads-refreshed`. On 2.1.24 (#32), a stub declaring `base` and one declaring `[]` with a
-  name sorting after `warheads-refreshed` both loaded after it. That the stub with `[]` and a name
-  sorting first loaded before it was inferred from its check, not read from the log.
+  `recipe_category`. Model a data-stage stub on that mod, `scripts/tests/warheads-user/`, but not
+  on its dependency on Warheads, and have its check assert that the stub's input reached the
+  generated prototype. Factorio orders mods by the depth of their dependency chains, then by the
+  natural order of their names (<https://lua-api.factorio.com/2.1.24/auxiliary/data-lifecycle.html>).
+  `warheads-refreshed` has no hard dependency, so a stub that must load before it declares
+  `"dependencies": []` and has a name sorting before `warheads-refreshed`. A stub declaring
+  Warheads or `base`, or omitting `dependencies`, which gives the default `["base"]`, loads after
+  Warheads. The runs behind this are on #32.
 - **`pwsh -NoProfile -File scripts/port-probe.ps1 -Probe <name>`** runs one in-game probe under
   `--test-scenario`, which gives the game a player and runs ticks. It passes on
   `PROBE RESULT PASS`. The probes are `testsite`, `testsite15`, `fusionsite`, `shotgunclear`,
