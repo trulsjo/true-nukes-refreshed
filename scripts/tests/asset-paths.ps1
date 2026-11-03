@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
-    Every literal __mod__/... .png, .ogg or .jpg path in the three mods' Lua names a file that
-    exists.
+    Every literal __mod__/... .png, .jpg, .ogg, .wav or .voc path in the three mods' Lua names a
+    file that exists. The extension is matched in any case.
 
 .DESCRIPTION
     A headless load loads no sprites or sounds, so a path to a missing file validates there, and
@@ -12,7 +12,8 @@
     path joined from two literals, such as "__warheads-refreshed__/graphics/" .. "x.png"; and a
     file whose name differs only in case, which Windows finds. Paths into other mods (__base__,
     __core__, the dormant integrations) are counted and skipped. Commented-out Lua is read like
-    any other, so a dead path to a missing file fails too.
+    any other, so a dead path to a missing file fails too. A path with any other extension is
+    neither checked nor counted. A mod directory missing under the root fails the check.
 
 .PARAMETER Root
     The directory holding the three mod directories. Defaults to the repository root.
@@ -28,11 +29,11 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $mods = 'true-nukes-refreshed', 'warheads-refreshed', 'true-nukes-graphics-refreshed'
-$pattern = '["'']__([A-Za-z0-9_-]+)__/([^"''\r\n]+?\.(?:png|ogg|jpg))["'']'
+$pattern = '["'']__([A-Za-z0-9_-]+)__/([^"''\r\n]+?\.(?i:png|jpg|ogg|wav|voc))["'']'
 $checked = 0
 $skipped = 0
 $missing = foreach ($mod in $mods) {
-    foreach ($file in Get-ChildItem (Join-Path $Root $mod) -Recurse -Filter '*.lua') {
+    foreach ($file in Get-ChildItem -LiteralPath (Join-Path $Root $mod) -Recurse -Filter '*.lua') {
         foreach ($m in [regex]::Matches((Get-Content -LiteralPath $file.FullName -Raw), $pattern)) {
             $target = $m.Groups[1].Value
             if ($target -notin $mods) { $skipped++; continue }
@@ -45,9 +46,9 @@ $missing = foreach ($mod in $mods) {
 }
 $missing = @($missing | Sort-Object -Unique)
 if ($missing) {
-    Write-Host "CHECK FAILED: $($missing.Count) path(s) name no file ($checked checked, $skipped into other mods skipped)"
+    Write-Host "asset-paths: CHECK FAILED: $($missing.Count) path(s) name no file ($checked checked, $skipped into other mods skipped)"
     $missing | ForEach-Object { Write-Host "  $_" }
     exit 1
 }
-Write-Host "CHECK PASSED: all $checked paths name a file ($skipped into other mods skipped)"
+Write-Host "asset-paths: CHECK PASSED: all $checked paths name a file ($skipped into other mods skipped)"
 exit 0
