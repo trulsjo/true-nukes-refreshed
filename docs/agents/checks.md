@@ -9,7 +9,11 @@ setup every run needs: the pinned `FACTORIO_EXE`, the submodule, the commit hook
 prototype validates and every `on_init` runs. It runs no ticks.
 
 - It first runs `scripts/tests/asset-paths.ps1`, which fails if a literal `__mod__/` image or sound
-  path in the Lua names no file, since a headless load loads none (#30).
+  path in the Lua names no file, since a headless load loads none (#30). Then
+  `scripts/tests/strict-lists.ps1`, which fails if a strict-mode script under `scripts/` reads
+  `.Count`, `.Id` or `.Name` off a command result not wrapped in `@()`: under strict mode an empty
+  result is `$null`, and the read throws only on the run that finds nothing. A command that always
+  outputs exactly one object carries `# strict-lists: one` on its assignment.
 - `-Check scripts/tests/shotgun-items.ps1` also requires the six generated shotgun items.
 - `scripts/tests/recipe-category.ps1` loads Warheads alone under a mod that sets `recipe_category`.
 

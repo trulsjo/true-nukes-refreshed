@@ -195,7 +195,7 @@ try {
             ForEach-Object { ConvertTo-NativeArgument $_ }) -join ' '
         $gameStart = Get-Date
         $proc = Start-Process -FilePath $harness.FactorioExe -ArgumentList $line -PassThru -NoNewWindow `
-            -RedirectStandardOutput $outFile -RedirectStandardError (Join-Path $harness.Temp 'achieve-stderr.txt')
+            -RedirectStandardOutput $outFile -RedirectStandardError (Join-Path $harness.Temp 'achieve-stderr.txt')  # strict-lists: one
         # The game buffers stdout, so the probe's lines are read from the file it also writes.
         $probeFile = Join-Path $harness.Temp 'write-data/script-output/probe.txt'
         $deadline = (Get-Date).AddSeconds($TestTicks / 60 + 300)
