@@ -34,9 +34,9 @@ untouched. #8 did not cover that loss; the review of #28 found it. `nuclearTests
 to lose: the code in `testDetonation` (`true-nukes-refreshed/scripts/nuclear-test-system.lua`)
 that would fill it is commented out, in Continued too.
 
-**Still open:** playing the port by hand (#27); the two replacement sounds, unheard (#5, #6); and
-why the game runs slower after a 15 kt blast on 2.1 than on 2.0 (#29). A 15 kt blast is playable,
-just slower afterwards.
+**Still open:** playing the port by hand (#27), which includes judging the levels of the two
+replacement sounds (#5, #6), heard in #16; and why the game runs slower after a 15 kt blast on 2.1
+than on 2.0 (#29). A 15 kt blast is playable, just slower afterwards.
 
 ## Checks
 
@@ -167,8 +167,9 @@ choosing between them is not.
   project** (Truls, 2026-10-31), so those files stay: keep the project non-commercial, and credit
   Arcitos, BicycleEater, Fatmice, GowlerMusic, Robinhood76 and Innominatus.
 - **Two sounds in `MushroomCloudInBuilt/sound/` are no longer MushroomCloud's**, because neither
-  had a licence we could rely on (Truls, 2026-10-31, on #4). Neither has been heard in-game yet
-  (#5, #6). Their earlier versions stay in git history.
+  had a licence we could rely on (Truls, 2026-10-31, on #4). Both were heard in-game in #16;
+  only judging their levels is left, under #27 (#5, #6). Their earlier versions stay in git
+  history.
   - `radiation_ticking.ogg` is 26.88 s of *Geiger_Tick_Low.wav* by JustLaz (CC0,
     <https://freesound.org/s/616516/>).
   - `nuclear_detonation_in_vincinity_2.ogg` is *Distant Huge Explosion.wav* by RogerBoyX69
