@@ -4,11 +4,11 @@
 
 .DESCRIPTION
     One log has a known freeze: each blast's window must start at the hit tick and hold AFTER
-    ticks, so the creation tick before the hit, made slow here, must count nowhere. The other log
-    lacks its second blast, and the script must stop on it without printing a table (#33). So must
-    -Logs when its wildcard matches no log, when the logs disagree on AFTER, or when their names mix
-    headless and windowed sessions. The free memory a kept log records is printed, and a log
-    without it says so. Measuring it needs a real session.
+    ticks, so the creation tick before the hit, made slow here, must count nowhere. A second log
+    lacks its second blast, and a third stops inside that blast's window: the script must stop on
+    each without printing a table (#33). So must -Logs when its wildcard matches no log, when the
+    logs disagree on AFTER, or when their names mix headless and windowed sessions. The free memory
+    a kept log records is printed, and a log without it says so. Measuring it needs a real session.
 
 .EXAMPLE
     pwsh -File scripts/tests/freeze-time.ps1
@@ -27,7 +27,8 @@ New-Item -ItemType Directory $dir | Out-Null
 # 10 ms, then one more 100 ms, and the window's last tick (hit + 1149) 1 s over 60 UPS. So the
 # freeze is 2.4 s (hit tick and the four after it) and the time lost 2.4 + 0.1 - 1/60 + 1 = 3.4 s.
 # With -FreeMb, the log ends with the free-memory line freeze-time.ps1 adds when it keeps a log.
-function New-Log([string] $Path, [int[]] $Fired, [int] $After = 1150, [int] $FreeMb) {
+# With -Ticks, the log stops after that many ticks, as a session cut short would.
+function New-Log([string] $Path, [int[]] $Fired, [int] $After = 1150, [int] $FreeMb, [int] $Ticks) {
     $first, $every, $count, $after = 100, 1300, 2, $After
     $ms = @{}
     foreach ($i in 1..$count) {
@@ -38,7 +39,8 @@ function New-Log([string] $Path, [int[]] $Fired, [int] $After = 1150, [int] $Fre
     }
     $lines = [Collections.Generic.List[string]]::new()
     $lines.Add("   0.100 Script @__tn-freeze-timer__/control.lua:23: FREEZE start tick 5 projectile true players 0 version 2.1.24 first $first every $every count $count after $after")
-    foreach ($t in 0..($first + ($count - 1) * $every + $after)) {
+    $last = if ($Ticks) { $Ticks - 1 } else { $first + ($count - 1) * $every + $after }
+    foreach ($t in 0..$last) {
         $b = $null
         foreach ($i in 1..$count) { $c = $first + ($i - 1) * $every; if ($t -eq $c -and $Fired -contains $i) { $lines.Add("   1.000 Script @__tn-freeze-timer__/control.lua:23: FREEZE fired $i at tick $($t + 5) created") } }
         $v = if ($ms.ContainsKey($t)) { $ms[$t] } else { 10 }
@@ -70,6 +72,16 @@ try {
     Check ($code -ne 0) "a log missing a blast exits non-zero (exit $code)"
     Check ($out -match '2\.1-headless-2' -and $out -match 'blast 2') "the message names the session and the blast"
     Check ($out -match 'free memory not logged') "a log without the free-memory line says so"
+    Check ($out -notmatch '\| Version') "no table is printed"
+
+    # Blast 2 hits on tick 1401; stopping after tick 2000 logs 600 of its 1150 ticks.
+    $cut = New-Log (Join-Path $dir '2.1-headless-3.log') -Fired 1, 2 -Ticks 2001
+    $out = & pwsh -NoProfile -File $script -Logs $cut 2>&1 | Out-String
+    $code = $LASTEXITCODE
+    Check ($code -ne 0) "a log cut off inside blast 2's window exits non-zero (exit $code)"
+    # The error view wraps a long message at a space onto a '     | ' line.
+    $flat = $out -replace '\s*\r?\n\s*\|\s*', ' '
+    Check ($flat -match '2\.1-headless-3' -and $flat -match 'blast 2 logged 600 of its 1150 ticks from hit tick 1401') "the message names the log, the blast and the ticks logged"
     Check ($out -notmatch '\| Version') "no table is printed"
 
     $out = & pwsh -NoProfile -File $script -Logs (Join-Path $dir 'nothing-*.log') 2>&1 | Out-String
