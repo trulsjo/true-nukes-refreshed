@@ -9,12 +9,12 @@
     a keyword. That happened three times on 2026-11-05.
 
     For each .ps1, this finds the block comments with a .SYNOPSIS line, from the parser's comment
-    tokens, so text in a string does not count, and gives each an owner: the function it directly
-    precedes (at most one blank line between), else the innermost function holding it, else the
-    script. It requires the owner's help, as the parser reads it, to have a synopsis starting with
-    that block's first .SYNOPSIS line, so another block cannot vouch for it. On a failure it names
-    the lines in the block that start with a dot but are not help keywords. Any script that does
-    not parse fails too. Help written as # line comments is not checked. It runs no game.
+    tokens, so text in a string does not count. Rather than repeat PowerShell's rules for which
+    block is whose help, it asks the parser: it blanks each block out, keeping its line breaks,
+    reparses, and compares the help the parser gives the script and every function. A block whose
+    removal changes nothing is not read, and fails. On a failure it names the lines in the block
+    that start with a dot but are not help keywords. Any script that does not parse fails too.
+    Help written as # line comments is not checked. It runs no game.
 
 .PARAMETER Path
     Scripts or directories to check. Defaults to the repository's scripts/ directory.
@@ -33,6 +33,18 @@ $root = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $keywords = 'SYNOPSIS', 'DESCRIPTION', 'PARAMETER', 'EXAMPLE', 'INPUTS', 'OUTPUTS', 'NOTES', 'LINK', 'COMPONENT',
     'ROLE', 'FUNCTIONALITY', 'FORWARDHELPTARGETNAME', 'FORWARDHELPCATEGORY', 'REMOTEHELPRUNSPACE', 'EXTERNALHELP'
 
+function Get-HelpSignature([System.Management.Automation.Language.ScriptBlockAst] $Ast) {
+    # All the help the parser reads in a script: the script's own and each function's, by
+    # where the function starts, as the comment block the parser built.
+    $help = $Ast.GetHelpContent()
+    $parts = @("script: $(if ($help) { $help.GetCommentBlock() } else { '-' })")
+    foreach ($f in $Ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)) {
+        $h = $f.GetHelpContent()
+        $parts += "$($f.Extent.StartOffset): $(if ($h) { $h.GetCommentBlock() } else { '-' })"
+    }
+    $parts -join "`n"
+}
+
 $files = @($Path | ForEach-Object {
         if (Test-Path -LiteralPath $_ -PathType Container) {
             Get-ChildItem -LiteralPath $_ -Recurse -Filter '*.ps1' -File
@@ -46,36 +58,24 @@ $broken = @(foreach ($file in $files) {
         $ast = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref] $tokens, [ref] $errors)
         if ($errors) { "$($where): does not parse: $($errors[0].Message)"; continue }
         $blocks = @($tokens | Where-Object {
-                $_.Kind -eq 'Comment' -and $_.Text.StartsWith('<#') -and $_.Text -match '(?m)^\s*\.SYNOPSIS\b'
+                $_.Kind -eq 'Comment' -and $_.Text.StartsWith('<#') -and $_.Text -match '(?m)(?:^|<#)[ \t]*\.SYNOPSIS\b'
             })
         if (-not $blocks.Count) { continue }
         $checked++
         $text = $ast.Extent.Text
-        $functions = @($ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true))
+        $read = Get-HelpSignature $ast
 
         foreach ($block in $blocks) {
-            # The block's owner: the function it directly precedes (at most one blank line
-            # between), else the innermost function holding it, else the script itself.
-            $end = $block.Extent.EndOffset
-            $owner = $ast
-            $holding = @($functions | Where-Object {
-                    $_.Extent.StartOffset -lt $block.Extent.StartOffset -and $_.Extent.EndOffset -ge $end
-                } | Sort-Object { $_.Extent.StartOffset })
-            if ($holding.Count) { $owner = $holding[-1] }
-            $before = @($functions | Where-Object { $_.Extent.StartOffset -ge $end } | Sort-Object { $_.Extent.StartOffset })
-            if ($before.Count) {
-                $gap = $text.Substring($end, $before[0].Extent.StartOffset - $end)
-                if ($gap -match '^\s*$' -and ([regex]::Matches($gap, '\n')).Count -le 2) { $owner = $before[0] }
-            }
-            $help = $owner.GetHelpContent()
-            $m = [regex]::Match($block.Text, '(?m)^\s*\.SYNOPSIS[ \t]*\r?\n\s*(\S[^\r\n]*)')
-            $first = if ($m.Success) { $m.Groups[1].Value.Trim() } else { '' }
-            if ($first -and $help -and "$($help.Synopsis)".Trim().StartsWith($first, [StringComparison]::Ordinal)) { continue }
-            $whose = if ($owner -is [System.Management.Automation.Language.FunctionDefinitionAst]) { "function $($owner.Name)'s" } else { "the script's" }
-            "$($where):$($block.Extent.StartLineNumber): a help block PowerShell does not read as $whose help"
+            $s = $block.Extent.StartOffset
+            $blank = $text.Substring(0, $s) + ($block.Text -replace '[^\r\n]', ' ') + $text.Substring($block.Extent.EndOffset)
+            $t2 = $null
+            $e2 = $null
+            $without = [System.Management.Automation.Language.Parser]::ParseInput($blank, [ref] $t2, [ref] $e2)
+            if ((Get-HelpSignature $without) -ne $read) { continue }
+            "$($where):$($block.Extent.StartLineNumber): a help block PowerShell does not read"
             $lines = @($block.Text -split '\r?\n')
             for ($n = 0; $n -lt $lines.Count; $n++) {
-                $l = $lines[$n].Trim()
+                $l = $lines[$n].Trim() -replace '^<#\s*', ''
                 if ($l -match '^\.([A-Za-z]+)' -and $Matches[1].ToUpperInvariant() -notin $keywords) {
                     "    line $($block.Extent.StartLineNumber + $n) starts with a dot but is no help keyword: $l"
                 }

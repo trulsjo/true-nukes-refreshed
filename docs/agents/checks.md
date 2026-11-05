@@ -22,9 +22,10 @@ prototype validates and every `on_init` runs. It runs no ticks.
   read by read, exactly the flagged ones throw, so a fixture line is a fact about PowerShell, not
   only about the check. A new fixture read must run. On a line marked `known false hit`, a
   flagged read may run safely; on one marked `known miss`, an unflagged read may throw. Then
-  `scripts/tests/script-help.ps1`, which fails unless every comment-based help block is the help
-  the parser attaches to its owner (the function it precedes or sits in, else the script), and
-  fails on any script that does not parse. A help line that starts with a dot but is no help
+  `scripts/tests/script-help.ps1`, which fails unless the parser reads every comment-based help
+  block, and on any script that does not parse. It does not repeat PowerShell's rules for whose
+  help a block is: it blanks each block out, reparses, and fails a block whose removal changes no
+  help the parser gives the script or a function. A help line that starts with a dot but is no help
   keyword, such as one opening with `.Count`, makes PowerShell drop the whole block silently.
   Help written as `#` line comments is not checked; the scripts here use `<# #>` blocks.
 - `-Check scripts/tests/shotgun-items.ps1` also requires the six generated shotgun items.
