@@ -23,6 +23,17 @@
     runner closes the window once the probe has printed its result; the probe also writes its lines
     to script-output/probe.txt, because the game buffers stdout.
 
+    Windowed runs take turns. Before creating its save, a windowed run takes the named mutex
+    Global\tn-port-probe-windowed, which every session on the machine shares, whichever worktree
+    or shell started it. While another run holds it, the run prints that it is waiting. The
+    mutex is released however the run ends, and Windows frees it if the run's process is killed.
+    Headless probes take no lock.
+
+    A windowed run whose deadline passes with no PROBE RESULT line prints TIMEOUT, how long it
+    waited, the last PROBE line (or that the game printed none), and how many other factorio.exe
+    processes are running, and exits 2. Exit 1 is FAIL: the probe printed PROBE RESULT FAIL, the
+    game exited by itself, or the run errored.
+
 .PARAMETER Probe
     The probe's name, passed as --test-arg: testsite, testsite15, fusionsite, shotgunclear, big15,
     big2s15, big100, big1M, blastdamage, basic, fixture, fixturesite, craters, globals,
@@ -41,7 +52,8 @@
 .PARAMETER TestTicks
     The most ticks the game runs before it gives up on the probe. A windowed run (achieve,
     achievecheat, everything) never passes it to the game: there it only sets how long the runner
-    waits for a PROBE RESULT line, TestTicks / 60 + 300 seconds.
+    waits for a PROBE RESULT line, TestTicks / 60 + 300 seconds, counted from the game's start, not
+    from the wait for the lock. Past that the run is a TIMEOUT.
 
 .PARAMETER KeepTemp
     Keep the harness's temp directory, with the captured output and log.
@@ -105,9 +117,32 @@ $harness = New-LoadHarness -Mods $mods
 Write-Host "harness: $($harness.Temp)"
 $code = 1
 $proc = $null
+$lock = $null
+$held = $false
 try {
     Write-HarnessModList -Harness $harness
     if ($windowed) {
+        # Windowed runs take turns (#42): side by side they load graphics slowly and can stall. The
+        # Global\ name is shared by every session on the machine. WaitOne is given 2 s at a time so
+        # that Ctrl+C can stop the wait. A run whose process died without releasing the mutex leaves
+        # it abandoned, which the next WaitOne takes, reporting AbandonedMutexException.
+        $lockName = 'Global\tn-port-probe-windowed'
+        $lock = [Threading.Mutex]::new($false, $lockName)
+        $waitStart = Get-Date
+        $waiting = $false
+        while (-not $held) {
+            try { $held = $lock.WaitOne(2000) }
+            catch {
+                if ($_.Exception -is [Threading.AbandonedMutexException] -or
+                    $_.Exception.InnerException -is [Threading.AbandonedMutexException]) { $held = $true }
+                else { throw }
+            }
+            if (-not $held -and -not $waiting) {
+                Write-Host "waiting for another windowed run to finish (lock $lockName)"
+                $waiting = $true
+            }
+        }
+        if ($waiting) { Write-Host "lock taken after $([int]((Get-Date) - $waitStart).TotalSeconds) s" }
         # Headless runs never report achievements, so this one is a real game. --create makes a
         # new save that no /c has touched, in the harness's own write-data directory, and the game
         # loads it in a window. It never exits by itself: script.finish_test works only in a test
@@ -131,6 +166,7 @@ try {
         $line = (@('--config', $config, '--mod-directory', $harness.ModDirectory,
                 '--load-game', $save, '--disable-audio', '--window-size', '1280x720', '--disable-migration-window') |
             ForEach-Object { ConvertTo-NativeArgument $_ }) -join ' '
+        $gameStart = Get-Date
         $proc = Start-Process -FilePath $harness.FactorioExe -ArgumentList $line -PassThru -NoNewWindow `
             -RedirectStandardOutput $outFile -RedirectStandardError (Join-Path $harness.Temp 'achieve-stderr.txt')
         # The game buffers stdout, so the probe's lines are read from the file it also writes.
@@ -149,8 +185,18 @@ try {
         Get-Content (Join-Path $harness.Temp 'write-data/factorio-current.log') -ErrorAction SilentlyContinue |
             Where-Object { $_ -match 'Error' } | Select-Object -First 30 | ForEach-Object { Write-Host $_ }
         $passed = $out -match '^PROBE RESULT PASS'
-        Write-Host "$(if ($exited) { "game exited by itself with $($proc.ExitCode)" } else { 'game closed by the runner' }), $(if ($passed) { 'PASS' } else { 'FAIL' })"
-        if ($passed -and -not $exited) { $code = 0 }
+        if (-not $exited -and -not ($out -match '^PROBE RESULT ')) {
+            # The deadline passed with no result: a slow or stalled game, not a failed assertion.
+            $probeLines = @($out | Where-Object { $_ -match '^PROBE ' })
+            $last = if ($probeLines.Count) { "last PROBE line: $($probeLines[-1])" } else { 'the game printed no PROBE line' }
+            $others = @(Get-Process -Name factorio -ErrorAction SilentlyContinue | Where-Object Id -ne $proc.Id).Count
+            Write-Host "game closed by the runner, TIMEOUT: no PROBE RESULT after $([int]((Get-Date) - $gameStart).TotalSeconds) s; $last; other factorio.exe running: $others"
+            $code = 2
+        }
+        else {
+            Write-Host "$(if ($exited) { "game exited by itself with $($proc.ExitCode)" } else { 'game closed by the runner' }), $(if ($passed) { 'PASS' } else { 'FAIL' })"
+            if ($passed -and -not $exited) { $code = 0 }
+        }
     }
     else {
         $result = Invoke-Factorio -FactorioExe $harness.FactorioExe -ModDirectory $harness.ModDirectory `
@@ -167,6 +213,19 @@ try {
 }
 finally {
     if ($proc -and -not $proc.HasExited) { Stop-Process -Id $proc.Id -Force; $proc.WaitForExit() }
+    # Released only once the window is closed, so the next windowed run never overlaps this one.
+    # Released whether or not $held was set, since Ctrl+C can land after WaitOne has taken the
+    # mutex but before $held records it; in a shell that lives on, a mutex left owned would block
+    # every later windowed run. ReleaseMutex throws ApplicationException if this thread does not
+    # own it, as when the run never got the lock.
+    if ($lock) {
+        try { $lock.ReleaseMutex() }
+        catch {
+            if (-not ($_.Exception -is [ApplicationException] -or
+                    $_.Exception.InnerException -is [ApplicationException])) { throw }
+        }
+        $lock.Dispose()
+    }
     Remove-LoadHarness -Harness $harness -Keep:$KeepTemp
     Remove-Item $probeCopy -Recurse -Force
 }
