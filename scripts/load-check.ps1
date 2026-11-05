@@ -8,7 +8,8 @@
     tests/asset-paths.ps1 runs first, and the game does not start if a literal path in the Lua
     names no file. Then tests/strict-lists.ps1, which stops the run if a strict-mode script under
     scripts/ reads .Count off a command result not wrapped in @(), or .Id or .Name off any
-    command result.
+    command result. Then tests/script-help.ps1, which stops it if Get-Help cannot read a
+    script's comment-based help.
 
 .PARAMETER FactorioExe
     Path to factorio.exe. Defaults to the harness's own lookup: $env:FACTORIO_EXE, then Steam.
@@ -38,6 +39,8 @@ if (-not (Test-Path $harness)) { throw "No load harness at $harness. Run: git su
 & (Join-Path $PSScriptRoot 'tests/asset-paths.ps1') -Root $root
 if ($LASTEXITCODE) { exit $LASTEXITCODE }
 & (Join-Path $PSScriptRoot 'tests/strict-lists.ps1')
+if ($LASTEXITCODE) { exit $LASTEXITCODE }
+& (Join-Path $PSScriptRoot 'tests/script-help.ps1')
 if ($LASTEXITCODE) { exit $LASTEXITCODE }
 
 $mods = @('true-nukes-refreshed', 'warheads-refreshed', 'true-nukes-graphics-refreshed') |

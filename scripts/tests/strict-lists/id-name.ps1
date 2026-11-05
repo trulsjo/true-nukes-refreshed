@@ -1,5 +1,6 @@
-# Fixture for strict-lists.ps1, never run: .Id and .Name reads, which throw off $null and off an
-# empty array alike, so @() does not make them safe. Lines to flag end in "expect: flag".
+# Fixture for strict-lists.ps1: .Id and .Name reads, which throw off $null and off an empty array
+# alike, so @() does not make them safe. Lines to flag end in "expect: flag". The self-test also
+# runs it under strict mode (see count.ps1).
 Set-StrictMode -Version Latest
 function Get-None { }
 
@@ -44,6 +45,6 @@ $only, $none = Get-Item .  # strict-lists: one
 $only.Name
 $none.Name                                          # expect: flag
 
-# Known false hit: every branch gives a hashtable, yet a statement used as a value counts as bare.
+# Every branch gives a hashtable, yet a statement used as a value counts as bare.
 $table = if ($true) { @{ Name = 'a' } } else { @{ Name = 'b' } }
-$table.Name                                         # expect: flag
+$table.Name                                         # expect: flag  # known false hit

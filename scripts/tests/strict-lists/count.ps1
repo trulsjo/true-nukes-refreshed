@@ -1,5 +1,7 @@
-# Fixture for strict-lists.ps1, never run: .Count reads. Each line strict-lists.ps1 must flag ends
-# in "expect: flag"; every other read must pass.
+# Fixture for strict-lists.ps1: .Count reads. Each line strict-lists.ps1 must flag ends in
+# "expect: flag"; every other read must pass. Its self-test also runs this file under strict mode,
+# with each read caught, and requires the flagged reads, and only those, to throw: a line marked
+# "known false hit" or "known miss" is where the check and PowerShell are known to disagree.
 Set-StrictMode -Version Latest
 function Get-None { }
 
@@ -44,21 +46,21 @@ $list = @()
 $list += Get-None
 $list.Count
 
-# Several variables from one command; a later plain value clears them.
+# Several variables from one command; a later value no command produced clears them.
 $first, $rest = Get-None
 $rest.Count                                         # expect: flag
 $one, $two = Get-None
-$one, $two = 1, 2
+$one, $two = @(1), @(2)
 $one.Count
 
 # A statement used as a value is unrolled, even with @() in every branch.
-$loop = foreach ($i in 1..2) { $i }
+$loop = foreach ($i in @(1)) { $i }
 $loop.Count                                         # expect: flag
 $branch = if ($true) { @() } else { @(1) }
 $branch.Count                                       # expect: flag
-# Known false hit: each branch emits an array as one object.
+# Each branch emits an array as one object.
 $whole = if ($true) { , @(1) } else { , @(2) }
-$whole.Count                                        # expect: flag
+$whole.Count                                        # expect: flag  # known false hit
 
 # Round a loop: the bare assignment reaches the read on the next pass.
 $carried = @()
@@ -78,10 +80,11 @@ $literal.Count
 $wrapped | ForEach-Object { $_.Count }
 
 function Get-Inner {
-    $bare.Count                                     # no assignment in this function: not followed
+    $bare.Count                                     # known miss: assigned in another function
     $inner = Get-None
     $inner.Count                                    # expect: flag
 }
+Get-Inner
 
-# Known miss: an assignment inside the read.
-($inline = Get-None).Count
+# An assignment inside the read.
+($inline = Get-None).Count                          # known miss

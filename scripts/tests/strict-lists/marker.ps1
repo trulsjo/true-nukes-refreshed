@@ -1,5 +1,6 @@
-# Fixture for strict-lists.ps1, never run: the "strict-lists: one" marker covers only the
-# statement it directly follows. Lines to flag end in "expect: flag".
+# Fixture for strict-lists.ps1: the "strict-lists: one" marker covers only the statement it
+# directly follows. Lines to flag end in "expect: flag". The self-test also runs it under strict
+# mode (see count.ps1).
 Set-StrictMode -Version Latest
 function Get-None { }
 
@@ -28,8 +29,9 @@ Join-Path ((Get-Item .).Name) 'x'  # strict-lists: one
 # But never a .Count: one object has none.
 (Get-Item .).Count  # strict-lists: one  # expect: flag
 
-# A string's marker covers its one unsafe read, but neither of two, and not a statement inside.
+# A string's marker covers its one unsafe read, but neither of two (so the .Name below, which
+# cannot throw, is flagged), and not a statement inside.
 "$((Get-Item .).Name)"  # strict-lists: one
-"$((Get-None).Count) and $((Get-Item .).Name)"  # strict-lists: one  # expect: flag 2
+"$((Get-None).Count) and $((Get-Item .).Name)"  # strict-lists: one  # expect: flag 2  # known false hit
 "$($inString = Get-None)"  # strict-lists: one
 $inString.Count                                     # expect: flag
