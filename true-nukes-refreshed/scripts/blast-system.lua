@@ -68,7 +68,7 @@ local function damage_entity(surface, distSq, ePos, power, fire, damage_init, bl
     damage = math.random(damage/8, damage)/2
 
     if(eProto.resistances and eProto.resistances.explosion) then
-      damage = (damage-entity.prototype.resistances.explosion.decrease)*(1-eProto.resistances.explosion.percent)
+      damage = math.max(0, (damage-entity.prototype.resistances.explosion.decrease)*(1-eProto.resistances.explosion.percent))
     end
     -- If a tree is destroyed, don't bother doing particle effects, just destroy it - huge performance savings
     if (entity.health<damage) then
