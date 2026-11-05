@@ -14,7 +14,7 @@ if (-not $c) { $maybe = @() }
 $maybe.Count                                        # expect: flag
 
 # An assignment in one branch never reaches a read in another.
-if ($c) { $apart = Get-None } else { $apart = @(); $apart.Count }
+if (-not $c) { $apart = Get-None } else { $apart = @(); $apart.Count }
 
 # Round a loop, the last assignment directly in the body after the read reaches it.
 $carried = @()
