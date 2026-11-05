@@ -89,41 +89,44 @@ if (-not (Test-Path $lib)) { throw "No load harness at $lib. Run: git submodule 
 . $lib
 
 $probeCopy = Join-Path ([IO.Path]::GetTempPath()) ('tnp-' + [guid]::NewGuid().ToString('N').Substring(0, 6))
-Copy-Item (Join-Path $PSScriptRoot 'port-probe') (Join-Path $probeCopy 'tn-port-probe') -Recurse
-$lines = foreach ($k in $Settings.Keys) {
-    $v = $Settings[$k]
-    $lua = if ($v -is [bool]) { "$v".ToLower() } elseif ($v -is [string]) { "`"$v`"" } else { "$v" }
-    "for _, t in pairs({'bool-setting', 'string-setting', 'int-setting', 'double-setting'}) do"
-    "  if data.raw[t] and data.raw[t]['$k'] then data.raw[t]['$k'].default_value = $lua end"
-    "end"
-}
-($lines -join "`n") | Set-Content (Join-Path $probeCopy 'tn-port-probe/settings-final-fixes.lua')
-
-# Probes that load the Continued fixture save rather than a new map.
-$fixture = Join-Path $PSScriptRoot 'port-probe/fixtures/tn-continued-fixture.zip'
-$fixtureHash = '98ec59f472c85d11989a7a0152e678cc99de990e7482e9fdae14f626ac80cc28'
-$scenario = @('--test-scenario', 'tn-port-probe/p')
-if ($Probe -in 'fixture', 'fixturesite') {
-    $hash = (Get-FileHash $fixture -Algorithm SHA256).Hash.ToLower()
-    if ($hash -ne $fixtureHash) { throw "Fixture hash is $hash, expected $fixtureHash" }
-    # The game is given a copy, so the committed fixture is never written.
-    Copy-Item $fixture (Join-Path $probeCopy 'tn-continued-fixture.zip')
-    $scenario = @('--test-save', (Join-Path $probeCopy 'tn-continued-fixture.zip'))
-}
-
-$windowed = $Probe -in 'achieve', 'achievecheat', 'everything'
-if ($windowed) { "return `"$Probe`"" | Set-Content (Join-Path $probeCopy 'tn-port-probe/windowed.lua') }
-
-$mods = @('true-nukes-refreshed', 'warheads-refreshed', 'true-nukes-graphics-refreshed' |
-    ForEach-Object { Join-Path $root $_ }) + (Join-Path $probeCopy 'tn-port-probe')
-$harness = New-LoadHarness -Mods $mods
-# Printed first, so a run can be told apart from other sessions' runs while it is still going.
-Write-Host "harness: $($harness.Temp)"
+$harness = $null
 $code = 1
 $proc = $null
 $lock = $null
 $held = $false
+# Everything that makes a temp directory is inside the try, so the finally removes it whatever
+# fails (#61).
 try {
+    Copy-Item (Join-Path $PSScriptRoot 'port-probe') (Join-Path $probeCopy 'tn-port-probe') -Recurse
+    $lines = foreach ($k in $Settings.Keys) {
+        $v = $Settings[$k]
+        $lua = if ($v -is [bool]) { "$v".ToLower() } elseif ($v -is [string]) { "`"$v`"" } else { "$v" }
+        "for _, t in pairs({'bool-setting', 'string-setting', 'int-setting', 'double-setting'}) do"
+        "  if data.raw[t] and data.raw[t]['$k'] then data.raw[t]['$k'].default_value = $lua end"
+        "end"
+    }
+    ($lines -join "`n") | Set-Content (Join-Path $probeCopy 'tn-port-probe/settings-final-fixes.lua')
+
+    # Probes that load the Continued fixture save rather than a new map.
+    $fixture = Join-Path $PSScriptRoot 'port-probe/fixtures/tn-continued-fixture.zip'
+    $fixtureHash = '98ec59f472c85d11989a7a0152e678cc99de990e7482e9fdae14f626ac80cc28'
+    $scenario = @('--test-scenario', 'tn-port-probe/p')
+    if ($Probe -in 'fixture', 'fixturesite') {
+        $hash = (Get-FileHash $fixture -Algorithm SHA256).Hash.ToLower()
+        if ($hash -ne $fixtureHash) { throw "Fixture hash is $hash, expected $fixtureHash" }
+        # The game is given a copy, so the committed fixture is never written.
+        Copy-Item $fixture (Join-Path $probeCopy 'tn-continued-fixture.zip')
+        $scenario = @('--test-save', (Join-Path $probeCopy 'tn-continued-fixture.zip'))
+    }
+
+    $windowed = $Probe -in 'achieve', 'achievecheat', 'everything'
+    if ($windowed) { "return `"$Probe`"" | Set-Content (Join-Path $probeCopy 'tn-port-probe/windowed.lua') }
+
+    $mods = @('true-nukes-refreshed', 'warheads-refreshed', 'true-nukes-graphics-refreshed' |
+        ForEach-Object { Join-Path $root $_ }) + (Join-Path $probeCopy 'tn-port-probe')
+    $harness = New-LoadHarness -Mods $mods
+    # Printed first, so a run can be told apart from other sessions' runs while it is still going.
+    Write-Host "harness: $($harness.Temp)"
     Write-HarnessModList -Harness $harness
     if ($windowed) {
         # Windowed runs take turns (#42): side by side they load graphics slowly and can stall. The
@@ -238,16 +241,29 @@ finally {
         # before $held records it. In a shell that lives on, a mutex left owned would block every
         # later windowed run. ReleaseMutex throws ApplicationException if this thread does not own
         # it, as when the run never got the lock.
-        if ($lock) {
-            try { $lock.ReleaseMutex() }
-            catch {
-                if (-not ($_.Exception -is [ApplicationException] -or
-                        $_.Exception.InnerException -is [ApplicationException])) { throw }
+        try {
+            if ($lock) {
+                try { $lock.ReleaseMutex() }
+                catch {
+                    if (-not ($_.Exception -is [ApplicationException] -or
+                            $_.Exception.InnerException -is [ApplicationException])) { throw }
+                }
+                $lock.Dispose()
             }
-            $lock.Dispose()
+        }
+        finally {
+            # Removed in a finally of their own, so neither an error closing the window nor one
+            # releasing the lock can skip them (#61). Each removal only warns if it fails, so it
+            # never replaces the error that ended the run.
+            if ($harness) {
+                try { Remove-LoadHarness -Harness $harness -Keep:$KeepTemp }
+                catch { Write-Warning "could not remove the load harness at $($harness.Temp): $_" }
+            }
+            if (Test-Path $probeCopy) {
+                try { Remove-Item $probeCopy -Recurse -Force }
+                catch { Write-Warning "could not remove the probe-mod copy at ${probeCopy}: $_" }
+            }
         }
     }
-    Remove-LoadHarness -Harness $harness -Keep:$KeepTemp
-    Remove-Item $probeCopy -Recurse -Force
 }
 exit $code
