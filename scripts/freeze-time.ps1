@@ -78,11 +78,12 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 [Threading.Thread]::CurrentThread.CurrentCulture = [Globalization.CultureInfo]::InvariantCulture
 $root = Split-Path $PSScriptRoot -Parent
-$lib = Join-Path $root 'vendor/grado-factorio-tools/scripts/load-harness-lib.ps1'
-if (-not (Test-Path $lib)) { throw "No load harness at $lib. Run: git submodule update --init" }
-. $lib
 $exe = @{ '2.0' = $Factorio20Exe; '2.1' = $env:FACTORIO_EXE }
+# Only a run starts the game, so -Logs works without the tools submodule.
 if (-not $Logs) {
+    $lib = Join-Path $root 'vendor/grado-factorio-tools/scripts/load-harness-lib.ps1'
+    if (-not (Test-Path $lib)) { throw "No load harness at $lib. Run: git submodule update --init" }
+    . $lib
     foreach ($v in $exe.Keys) { if (-not $exe[$v] -or -not (Test-Path $exe[$v])) { throw "No Factorio $v at '$($exe[$v])'" } }
     New-Item -ItemType Directory -Force $LogDirectory | Out-Null
 }
