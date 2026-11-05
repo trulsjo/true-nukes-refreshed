@@ -61,7 +61,7 @@ try {
     Check ($code -eq 0) "a complete log exits 0 (exit $code)"
     Check ($out -match 'free memory 12345 MB at session start') "the free memory at session start is printed"
     Check ($out -match '\| 2\.1\.24 \| 1 \| 1 \| 2\.0 \(2\.0-2\.0\) \| 2\.4 \(2\.4-2\.4\) \| 3\.4 \(3\.4-3\.4\) \|') `
-        "blast 1: blast tick 2.0 s, freeze 2.4 s, lost 3.4 s over a window from the hit tick"
+        "blast 1: hit tick 2.0 s, freeze 2.4 s, lost 3.4 s over a window from the hit tick"
     Check ($out -match '\| 2\.1\.24 \| 2 \| 1 \| 2\.0 \(2\.0-2\.0\) \| 2\.4 \(2\.4-2\.4\) \| 3\.4 \(3\.4-3\.4\) \|') "blast 2: the same"
 
     $bad = New-Log (Join-Path $dir '2.1-headless-2.log') -Fired 1
