@@ -48,7 +48,10 @@ the player's own mods, saves and settings are neither read nor written. They nee
 copy of the submodule. `git config core.hooksPath .githooks`, from *Commit messages*, is once per
 clone: in a worktree it writes to the main checkout's shared `.git/config`, so it already covers
 every worktree. The commands pass `-NoProfile` because the checks need nothing from a PowerShell
-profile, and one started from Git Bash can print errors before the script runs.
+profile, and one started from Git Bash can print errors before the script runs. A leftover
+`load-harness-*` in `%TEMP%` can hold junctions into the mods' source folders, which a recursive
+delete follows: unlink each junction in its `mods` folder with `rmdir <link>` in cmd, without
+`/s`, then delete the folder (#61).
 
 - **`pwsh -NoProfile -File scripts/load-check.ps1`** loads the three mods and creates a map: every
   prototype validates and every `on_init` runs. It runs no ticks. It first runs
