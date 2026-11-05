@@ -7,7 +7,8 @@
     runs no ticks and loads no sprites or sounds; its own header says what it cannot see. So
     tests/asset-paths.ps1 runs first, and the game does not start if a literal path in the Lua
     names no file. Then tests/strict-lists.ps1, which stops the run if a strict-mode script under
-    scripts/ reads .Count, .Id or .Name off a command result not wrapped in @().
+    scripts/ reads .Count off a command result not wrapped in @(), or .Id or .Name off any
+    command result.
 
 .PARAMETER FactorioExe
     Path to factorio.exe. Defaults to the harness's own lookup: $env:FACTORIO_EXE, then Steam.
