@@ -25,9 +25,11 @@ $outer.Count                                        # expect: flag
 # An inline read inside ( ), a call or a condition is covered by the marker after its statement.
 if ((Get-Item .).Name -eq 'x') { }  # strict-lists: one
 Join-Path ((Get-Item .).Name) 'x'  # strict-lists: one
+# But never a .Count: one object has none.
+(Get-Item .).Count  # strict-lists: one  # expect: flag
 
 # A string's marker covers its one unsafe read, but neither of two, and not a statement inside.
 "$((Get-Item .).Name)"  # strict-lists: one
-"$((Get-None).Count) and $((Get-Item .).Name)"  # strict-lists: one  # expect: flag
+"$((Get-None).Count) and $((Get-Item .).Name)"  # strict-lists: one  # expect: flag 2
 "$($inString = Get-None)"  # strict-lists: one
 $inString.Count                                     # expect: flag
