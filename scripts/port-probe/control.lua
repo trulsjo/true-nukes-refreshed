@@ -288,7 +288,10 @@ end
 -- flying vehicle's 10 to 40 overlaps, so vehicles are averaged. Then a stone wall at half health
 -- (#37): its explosion resistance must be a flat 10 and 30%; hits rolled below 10 must leave its
 -- health unchanged rather than heal it; hits rolled at r from 20 to 80 must each lose
--- (r - 10) * 0.7; and the wall must still stand after both.
+-- (r - 10) * 0.7; and the wall must still stand after both. Last a resistant test tree at half
+-- health (#38), through damage_entity's tree branch: hits whose halved roll is below its flat 10
+-- must leave its health unchanged, and its growth stage too from full health; hits at a halved roll
+-- r from 11 to 88 must each lose (r - 10) * 0.5.
 local RAIL_TYPES = {"straight-rail", "curved-rail-a", "curved-rail-b", "half-diagonal-rail",
   "legacy-straight-rail", "legacy-curved-rail", "rail-ramp", "elevated-straight-rail",
   "elevated-curved-rail-a", "elevated-curved-rail-b", "elevated-half-diagonal-rail"}
@@ -446,7 +449,56 @@ probes.blastdamage = function()
         return finish(false, "a stone wall was destroyed by hits it should have survived")
       end
 
-      finish(ok, "every rail-like type is listed, every rail type takes a tenth of the blast; a vehicle with no collision layers takes half, an ordinary one all; a stone wall loses nothing to a hit below its flat resistance and (r - 10) * 0.7 to one above")
+      -- The probe mod's tn-probe-tree has a flat 10 and 50% explosion resistance and 1000 health
+      -- (#38). damage_entity's tree branch rolls math.random(d / 8, d) / 2 on a flat damage d, so a
+      -- hit at a halved roll r takes (r - 10) * 0.5, and one at or below 10 nothing. The tree starts
+      -- at half health, so a hit that healed it would show, and no hit can kill it.
+      i = i + 1
+      local tree = surface().create_entity{name = "tn-probe-tree", position = spot(i)}
+      local tree_res = tree.prototype.resistances.explosion
+      local tree_res_ok = tree_res.decrease == 10 and math.abs(tree_res.percent - 0.5) < 1e-6
+      say("tree explosion resistance decrease", tree_res.decrease, "percent", tree_res.percent,
+        tree_res_ok and "as expected" or "NOT 10 AND 50%")
+      if not tree_res_ok then ok = false end
+      local tree_health = tree.max_health / 2
+      local function tree_rolls(d) return d / 16, d / 2 end
+      -- TREE_WEAK's halved rolls, 1 to 8, are all below the flat 10; TREE_STRONG's, 11 to 88, all above.
+      local TREE_WEAK, TREE_STRONG = 16, 176
+      local stage = tree.tree_stage_index
+      local tw_lo, tw_hi = tree_rolls(TREE_WEAK)
+      local tree_weak = losses(tree, HITS, TREE_WEAK, tree_health)
+      local tree_weak_ok = tree.valid and #tree_weak == HITS
+      for _, v in pairs(tree_weak) do if v ~= 0 then tree_weak_ok = false end end
+      say("tree weak hits (rolls " .. tw_lo .. "-" .. tw_hi .. ") losses", table.concat(tree_weak, ","),
+        tree_weak_ok and "unchanged" or "CHANGED")
+      if not tree_weak_ok then ok = false end
+      -- The tree branch works the stage out from health after every hit it survives, so a tree set
+      -- to half health changes stage even on a hit that takes nothing. At full health a hit that
+      -- takes nothing must keep the stage.
+      if tree.valid then
+        tree.tree_stage_index = stage
+        local full = losses(tree, HITS, TREE_WEAK)
+        local stage_ok = tree.valid and #full == HITS and tree.tree_stage_index == stage
+        for _, v in pairs(full) do if v ~= 0 then stage_ok = false end end
+        say("tree weak hits at full health: stage", stage, "->", tree.valid and tree.tree_stage_index,
+          stage_ok and "unchanged" or "CHANGED")
+        if not stage_ok then ok = false end
+      end
+      local ts_lo, ts_hi = tree_rolls(TREE_STRONG)
+      local tree_strong = losses(tree, HITS, TREE_STRONG, tree_health)
+      local tree_strong_ok, tree_shown = tree.valid and #tree_strong == HITS, {}
+      for k, v in pairs(tree_strong) do
+        local r = v / (1 - tree_res.percent) + tree_res.decrease
+        -- A halved roll is a whole or half number; health is a single float.
+        local half = math.abs(2 * r - math.floor(2 * r + 0.5)) < 1e-3
+        if not (half and r >= ts_lo - 1e-3 and r <= ts_hi + 1e-3) then tree_strong_ok = false end
+        tree_shown[k] = string.format("%.1f", v)
+      end
+      say("tree strong hits (rolls " .. ts_lo .. "-" .. ts_hi .. ") losses", table.concat(tree_shown, ","),
+        tree_strong_ok and "as expected" or "WRONG")
+      if not tree_strong_ok then ok = false end
+
+      finish(ok, "every rail-like type is listed, every rail type takes a tenth of the blast; a vehicle with no collision layers takes half, an ordinary one all; a stone wall loses nothing to a hit below its flat resistance and (r - 10) * 0.7 to one above; a resistant tree loses nothing to a hit below its flat resistance and keeps its stage, and loses (r - 10) * 0.5 to one above")
     end},
   }
 end
