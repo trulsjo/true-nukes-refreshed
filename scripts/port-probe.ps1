@@ -33,6 +33,13 @@
     run's pwsh can leave its game window open, so once a run has the lock it warns if any
     factorio.exe is already running. Headless probes take no lock.
 
+    Every run removes its probe-mod copy, and its load harness unless -KeepTemp, however it
+    ends. The one exception is a game the runner could not close: it still holds files in its
+    harness directory, so that directory stays, with its junctions removed and a warning
+    ("load-harness: could not remove temp directory ...") naming it. A run stopped while its
+    harness is being built removes it too, unless the harness has no link to this run's
+    probe-mod copy yet; then it only warns where a harness may be left.
+
     A windowed run whose deadline passes with no PROBE RESULT line prints TIMEOUT, how long it
     waited, the last PROBE line (or that the game printed none), and how many other factorio.exe
     processes are running, and exits 2. Exit 1 is FAIL: the probe printed PROBE RESULT FAIL, the
@@ -90,6 +97,7 @@ if (-not (Test-Path $lib)) { throw "No load harness at $lib. Run: git submodule 
 
 $probeCopy = Join-Path ([IO.Path]::GetTempPath()) ('tnp-' + [guid]::NewGuid().ToString('N').Substring(0, 6))
 $harness = $null
+$harnessesBefore = $null
 $code = 1
 $proc = $null
 $lock = $null
@@ -124,6 +132,10 @@ try {
 
     $mods = @('true-nukes-refreshed', 'warheads-refreshed', 'true-nukes-graphics-refreshed' |
         ForEach-Object { Join-Path $root $_ }) + (Join-Path $probeCopy 'tn-port-probe')
+    # Recorded so that finally can find this run's harness if the run is stopped while it is built.
+    # ForEach-Object rather than .Name, which strict mode refuses on an empty list.
+    $harnessesBefore = @(Get-ChildItem ([IO.Path]::GetTempPath()) -Directory -Filter 'load-harness-*' -ErrorAction SilentlyContinue |
+        ForEach-Object Name)
     $harness = New-LoadHarness -Mods $mods
     # Printed first, so a run can be told apart from other sessions' runs while it is still going.
     Write-Host "harness: $($harness.Temp)"
@@ -255,13 +267,35 @@ finally {
             # Removed in a finally of their own, so neither an error closing the window nor one
             # releasing the lock can skip them (#61). Each removal only warns if it fails, so it
             # never replaces the error that ended the run.
+            # -WarningAction Continue, because a caller's $WarningPreference = 'Stop' would
+            # otherwise make the warning throw and replace the run's own error.
+            if (-not $harness -and $null -ne $harnessesBefore) {
+                # Stopped while New-LoadHarness was building the harness, so it never returned it.
+                # A new harness is this run's if it links this run's own probe-mod copy, whose
+                # path no other run shares. One with no probe-mod link yet may belong to a run
+                # from the same checkout still building its own, so it is named, not removed.
+                $ownLink = (Join-Path $probeCopy 'tn-port-probe').TrimEnd('\')
+                $new = @(Get-ChildItem ([IO.Path]::GetTempPath()) -Directory -Filter 'load-harness-*' -ErrorAction SilentlyContinue |
+                    Where-Object Name -notin $harnessesBefore)
+                foreach ($dir in $new) {
+                    $link = Get-Item -LiteralPath (Join-Path $dir.FullName 'mods\tn-port-probe') -Force -ErrorAction SilentlyContinue
+                    if (-not $link) {
+                        Write-Warning -WarningAction Continue "a load harness may be left at $($dir.FullName); unlink the junctions in its mods folder with rmdir before deleting it"
+                    }
+                    elseif ($link.LinkType -eq 'Junction' -and "$($link.LinkTarget)".TrimEnd('\') -eq $ownLink) {
+                        $harness = [pscustomobject]@{ Temp = $dir.FullName; ModDirectory = Join-Path $dir.FullName 'mods' }
+                    }
+                }
+            }
             if ($harness) {
                 try { Remove-LoadHarness -Harness $harness -Keep:$KeepTemp }
-                catch { Write-Warning "could not remove the load harness at $($harness.Temp): $_" }
+                catch {
+                    Write-Warning -WarningAction Continue "could not remove the load harness at $($harness.Temp): $_; junctions may remain in its mods folder, so unlink them with rmdir before deleting it"
+                }
             }
             if (Test-Path $probeCopy) {
                 try { Remove-Item $probeCopy -Recurse -Force }
-                catch { Write-Warning "could not remove the probe-mod copy at ${probeCopy}: $_" }
+                catch { Write-Warning -WarningAction Continue "could not remove the probe-mod copy at ${probeCopy}: $_" }
             }
         }
     }
