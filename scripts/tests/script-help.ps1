@@ -9,10 +9,12 @@
     a keyword. That happened three times on 2026-11-05.
 
     For each .ps1, this finds the block comments with a .SYNOPSIS line, from the parser's comment
-    tokens, so text in a string does not count, and requires each to be the help the parser
-    attaches to the script or to one of its functions: some help content whose synopsis starts
-    with that block's first .SYNOPSIS line. On a failure it names the lines in the block that start
-    with a dot but are not help keywords. A script that does not parse fails too. It runs no game.
+    tokens, so text in a string does not count, and gives each an owner: the function it directly
+    precedes (at most one blank line between), else the innermost function holding it, else the
+    script. It requires the owner's help, as the parser reads it, to have a synopsis starting with
+    that block's first .SYNOPSIS line, so another block cannot vouch for it. On a failure it names
+    the lines in the block that start with a dot but are not help keywords. Any script that does
+    not parse fails too. Help written as # line comments is not checked. It runs no game.
 
 .PARAMETER Path
     Scripts or directories to check. Defaults to the repository's scripts/ directory.
@@ -42,24 +44,35 @@ $broken = @(foreach ($file in $files) {
         $tokens = $null
         $errors = $null
         $ast = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref] $tokens, [ref] $errors)
+        if ($errors) { "$($where): does not parse: $($errors[0].Message)"; continue }
         $blocks = @($tokens | Where-Object {
                 $_.Kind -eq 'Comment' -and $_.Text.StartsWith('<#') -and $_.Text -match '(?m)^\s*\.SYNOPSIS\b'
             })
         if (-not $blocks.Count) { continue }
         $checked++
-        if ($errors) { "$($where): does not parse, so its help cannot be read: $($errors[0].Message)"; continue }
-
-        # The synopses the parser reads: the script's own help and each function's.
-        $help = @(@($ast.GetHelpContent()) + @($ast.FindAll({ param($n)
-                        $n -is [System.Management.Automation.Language.FunctionDefinitionAst]
-                    }, $true) | ForEach-Object { $_.GetHelpContent() }) | Where-Object { $_ })
-        $synopses = @($help | ForEach-Object { "$($_.Synopsis)".Trim() })
+        $text = $ast.Extent.Text
+        $functions = @($ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true))
 
         foreach ($block in $blocks) {
+            # The block's owner: the function it directly precedes (at most one blank line
+            # between), else the innermost function holding it, else the script itself.
+            $end = $block.Extent.EndOffset
+            $owner = $ast
+            $holding = @($functions | Where-Object {
+                    $_.Extent.StartOffset -lt $block.Extent.StartOffset -and $_.Extent.EndOffset -ge $end
+                } | Sort-Object { $_.Extent.StartOffset })
+            if ($holding.Count) { $owner = $holding[-1] }
+            $before = @($functions | Where-Object { $_.Extent.StartOffset -ge $end } | Sort-Object { $_.Extent.StartOffset })
+            if ($before.Count) {
+                $gap = $text.Substring($end, $before[0].Extent.StartOffset - $end)
+                if ($gap -match '^\s*$' -and ([regex]::Matches($gap, '\n')).Count -le 2) { $owner = $before[0] }
+            }
+            $help = $owner.GetHelpContent()
             $m = [regex]::Match($block.Text, '(?m)^\s*\.SYNOPSIS[ \t]*\r?\n\s*(\S[^\r\n]*)')
             $first = if ($m.Success) { $m.Groups[1].Value.Trim() } else { '' }
-            if ($first -and @($synopses | Where-Object { $_.StartsWith($first, [StringComparison]::Ordinal) }).Count) { continue }
-            "$($where):$($block.Extent.StartLineNumber): a help block PowerShell does not read"
+            if ($first -and $help -and "$($help.Synopsis)".Trim().StartsWith($first, [StringComparison]::Ordinal)) { continue }
+            $whose = if ($owner -is [System.Management.Automation.Language.FunctionDefinitionAst]) { "function $($owner.Name)'s" } else { "the script's" }
+            "$($where):$($block.Extent.StartLineNumber): a help block PowerShell does not read as $whose help"
             $lines = @($block.Text -split '\r?\n')
             for ($n = 0; $n -lt $lines.Count; $n++) {
                 $l = $lines[$n].Trim()
@@ -70,7 +83,7 @@ $broken = @(foreach ($file in $files) {
         }
     })
 if ($broken.Count) {
-    Write-Host "script-help: CHECK FAILED: help PowerShell cannot read, in $checked script(s) with help"
+    Write-Host "script-help: CHECK FAILED: help PowerShell cannot read, or a script that does not parse, among $($files.Count) script(s)"
     $broken | ForEach-Object { Write-Host "  $_" }
     exit 1
 }

@@ -384,12 +384,18 @@ function Get-FixtureRun([IO.FileInfo] $File) {
         "function Start-Process { [System.Diagnostics.Process]::GetCurrentProcess() }`n" +
         "`$__ran = [System.Collections.Generic.HashSet[int]]::new()`n" +
         "`$__threw = [System.Collections.Generic.HashSet[int]]::new()`n"
-    $epilogue = "`n[pscustomobject]@{ Ran = `$__ran; Threw = `$__threw }"
+    $epilogue = "`n[pscustomobject]@{ StrictListsEnd = `$true; Ran = `$__ran; Threw = `$__threw }"
     $ps = [powershell]::Create()
     try {
         $out = @($ps.AddScript($prelude + $code.ToString() + $epilogue).Invoke())
+        # An error that does not stop the script, such as Write-Error -ErrorAction Continue,
+        # lands in the error stream, not in an exception.
+        if ($ps.HadErrors -and $ps.Streams.Error.Count) { throw "it wrote an error: $($ps.Streams.Error[0])" }
     } finally { $ps.Dispose() }
-    $result = $out[-1]
+    $result = if ($out.Count) { $out[-1] } else { $null }
+    if (-not ($result -and $result.PSObject.Properties['StrictListsEnd'])) {
+        throw 'it ended before its last line, by a return, an exit or a break outside a loop'
+    }
     foreach ($r in $reads) {
         $s = $r.Extent.StartOffset
         [pscustomobject]@{
@@ -450,16 +456,23 @@ $untrue = @(foreach ($f in $fixtureFiles) {
         $source = @(Get-Content -LiteralPath $f.FullName)
         if (-not @($source -match '^\s*Set-StrictMode\b').Count) { continue }
         try { $run = @(Get-FixtureRun $f) } catch { "$($f.Name): stopped when run: $($_.Exception.Message)"; continue }
+        $excused = @{}
         foreach ($read in $run) {
             $at = "$($f.Name):$($read.Line): $($read.Read)"
             $text = $source[$read.Line - 1]
             $isFlagged = $flagged.Contains("$($f.Name):$($read.Offset)")
             if (-not $read.Ran) { "$at never ran, so the fixture proves nothing about it"; continue }
-            if ($isFlagged -and -not $read.Threw -and $text -notmatch '#.*\bknown false hit\b') {
-                "$at is flagged, but strict mode let it through"
+            if ($isFlagged -and -not $read.Threw) {
+                if ($text -match '#.*\bknown false hit\b') { $excused[$read.Line] = $true } else { "$at is flagged, but strict mode let it through" }
             }
-            if ($read.Threw -and -not $isFlagged -and $text -notmatch '#.*\bknown miss\b') {
-                "$at threw under strict mode, but is not flagged"
+            if ($read.Threw -and -not $isFlagged) {
+                if ($text -match '#.*\bknown miss\b') { $excused[$read.Line] = $true } else { "$at threw under strict mode, but is not flagged" }
+            }
+        }
+        # A tag whose disagreement has gone would quietly excuse the next one on its line.
+        foreach ($n in @($run | ForEach-Object Line | Sort-Object -Unique)) {
+            if ($source[$n - 1] -match '#.*\bknown (false hit|miss)\b' -and -not $excused.ContainsKey($n)) {
+                "$($f.Name):$($n): says known $($Matches[1]), but none of its reads disagree with strict mode now"
             }
         }
     })
