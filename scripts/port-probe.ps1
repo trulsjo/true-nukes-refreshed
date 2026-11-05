@@ -4,8 +4,9 @@
     --test-scenario, which gives the game a player and runs ticks.
 
 .DESCRIPTION
-    Exit 0 means the probe printed PROBE RESULT PASS and the game exited 0. Every PROBE line and
-    any error the game logged are printed.
+    Exit 0 means the probe printed PROBE RESULT PASS and the game exited 0, or, for a windowed
+    probe, that the game was still running when the runner closed it. Exits 1 and 2 are below.
+    Every PROBE line and any error the game logged are printed.
 
     The game runs in the shared load harness's isolated write-data and mod directories, so the
     player's own mods, saves and settings are neither read nor written.
@@ -25,9 +26,12 @@
 
     Windowed runs take turns. Before creating its save, a windowed run takes the named mutex
     Global\tn-port-probe-windowed, which every session on the machine shares, whichever worktree
-    or shell started it. While another run holds it, the run prints that it is waiting. The
-    mutex is released however the run ends, and Windows frees it if the run's process is killed.
-    Headless probes take no lock.
+    or shell started it. The exception is a mutex an elevated shell created: a normal shell cannot
+    open it, and its run stops with an UnauthorizedAccessException (exit 1) instead of waiting.
+    While another run holds the mutex, the run prints that it is waiting. The mutex is released
+    however the run ends, and Windows frees it if the run's process is killed. Killing only the
+    run's pwsh can leave its game window open, so once a run has the lock it warns if any
+    factorio.exe is already running. Headless probes take no lock.
 
     A windowed run whose deadline passes with no PROBE RESULT line prints TIMEOUT, how long it
     waited, the last PROBE line (or that the game printed none), and how many other factorio.exe
@@ -124,8 +128,9 @@ try {
     if ($windowed) {
         # Windowed runs take turns (#42): side by side they load graphics slowly and can stall. The
         # Global\ name is shared by every session on the machine. WaitOne is given 2 s at a time so
-        # that Ctrl+C can stop the wait. A run whose process died without releasing the mutex leaves
-        # it abandoned, which the next WaitOne takes, reporting AbandonedMutexException.
+        # that Ctrl+C can stop the wait. A mutex whose owner ended without releasing it goes to the
+        # next WaitOne; Windows may report that as AbandonedMutexException, which still gives this
+        # run the mutex. After a killed pwsh it did not on 2026-11-05: WaitOne just returned true.
         $lockName = 'Global\tn-port-probe-windowed'
         $lock = [Threading.Mutex]::new($false, $lockName)
         $waitStart = Get-Date
@@ -134,7 +139,10 @@ try {
             try { $held = $lock.WaitOne(2000) }
             catch {
                 if ($_.Exception -is [Threading.AbandonedMutexException] -or
-                    $_.Exception.InnerException -is [Threading.AbandonedMutexException]) { $held = $true }
+                    $_.Exception.InnerException -is [Threading.AbandonedMutexException]) {
+                    $held = $true
+                    Write-Host 'took over the lock from a run that ended without releasing it'
+                }
                 else { throw }
             }
             if (-not $held -and -not $waiting) {
@@ -143,6 +151,10 @@ try {
             }
         }
         if ($waiting) { Write-Host "lock taken after $([int]((Get-Date) - $waitStart).TotalSeconds) s" }
+        # A run whose pwsh was killed frees the lock but can leave its game open, and Windows does
+        # not always report the mutex as abandoned then, so any game already running is named here.
+        $strays = @(Get-Process -Name factorio -ErrorAction SilentlyContinue).Count
+        if ($strays) { Write-Host "warning: $strays factorio.exe already running beside this windowed run" }
         # Headless runs never report achievements, so this one is a real game. --create makes a
         # new save that no /c has touched, in the harness's own write-data directory, and the game
         # loads it in a window. It never exits by itself: script.finish_test works only in a test
@@ -212,19 +224,28 @@ try {
     }
 }
 finally {
-    if ($proc -and -not $proc.HasExited) { Stop-Process -Id $proc.Id -Force; $proc.WaitForExit() }
-    # Released only once the window is closed, so the next windowed run never overlaps this one.
-    # Released whether or not $held was set, since Ctrl+C can land after WaitOne has taken the
-    # mutex but before $held records it; in a shell that lives on, a mutex left owned would block
-    # every later windowed run. ReleaseMutex throws ApplicationException if this thread does not
-    # own it, as when the run never got the lock.
-    if ($lock) {
-        try { $lock.ReleaseMutex() }
-        catch {
-            if (-not ($_.Exception -is [ApplicationException] -or
-                    $_.Exception.InnerException -is [ApplicationException])) { throw }
+    try {
+        if ($proc -and -not $proc.HasExited) {
+            # The game can exit between the check and Stop-Process, which then throws; that is fine.
+            try { Stop-Process -Id $proc.Id -Force } catch { if (-not $proc.HasExited) { throw } }
+            $proc.WaitForExit()
         }
-        $lock.Dispose()
+    }
+    finally {
+        # Released only once the window is closed, so the next windowed run never overlaps this
+        # one, and in a finally of its own, so an error closing the window cannot skip it. Released
+        # whether or not $held was set, since Ctrl+C can land after WaitOne has taken the mutex but
+        # before $held records it. In a shell that lives on, a mutex left owned would block every
+        # later windowed run. ReleaseMutex throws ApplicationException if this thread does not own
+        # it, as when the run never got the lock.
+        if ($lock) {
+            try { $lock.ReleaseMutex() }
+            catch {
+                if (-not ($_.Exception -is [ApplicationException] -or
+                        $_.Exception.InnerException -is [ApplicationException])) { throw }
+            }
+            $lock.Dispose()
+        }
     }
     Remove-LoadHarness -Harness $harness -Keep:$KeepTemp
     Remove-Item $probeCopy -Recurse -Force
