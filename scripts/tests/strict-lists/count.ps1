@@ -25,6 +25,12 @@ $paren.Count                                        # expect: flag
 $sub = $(Get-None)
 $sub.Count                                          # expect: flag
 
+# A copy takes the state of what it copies.
+$copy = $bare
+$copy.Count                                         # expect: flag
+$copyWrapped = $wrapped
+$copyWrapped.Count
+
 # Rewrapped before the read.
 $re = Get-None
 $re = @($re)

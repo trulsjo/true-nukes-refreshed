@@ -14,7 +14,8 @@ prototype validates and every `on_init` runs. It runs no ticks.
   command finds nothing or one: `.Count` off a command result not wrapped in `@()`, and `.Id` or
   `.Name` off any command result, since an empty array has neither. The fixes are `@(...)` for
   `.Count` and `ForEach-Object Id` or `Name` for the others. A statement that always outputs
-  exactly one object ends with the comment `# strict-lists: one`. It first runs on its own fixtures
+  exactly one object ends with the comment `# strict-lists: one`, which makes its `.Id` and
+  `.Name` safe; one object still has no `.Count`. It first runs on its own fixtures
   in `scripts/tests/strict-lists/`, where each line it must flag says `# expect: flag`; a change to
   the check goes with a fixture line that fails without it.
 - `-Check scripts/tests/shotgun-items.ps1` also requires the six generated shotgun items.
