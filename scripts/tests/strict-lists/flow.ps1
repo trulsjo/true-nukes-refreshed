@@ -54,6 +54,50 @@ foreach ($i in 1..2) {
     $skipped = Get-None
 }
 
+# Inside a loop, another branch of an if can have run on an earlier pass.
+$turns = @()
+foreach ($i in 1..2) {
+    if ($i -eq 1) { $turns = Get-None } else { $turns.Count }    # expect: flag
+}
+
+# A switch runs every clause that matches, and its clauses once per item.
+$clauses = @()
+switch -Regex ('ab') { 'a' { $clauses = Get-None } 'b' { $clauses.Count } }    # expect: flag
+$items = @()
+switch (1, 2) { default { $items.Count; $items = Get-None } }    # expect: flag
+
+# A for loop's iterator runs after the body, and its initializer only once.
+$stepped = Get-None
+for ($i = 0; $i -lt 2; $stepped = @()) { $stepped.Count }    # expect: flag
+for ($started = @(); $i -lt 2; $i++) {
+    $started.Count                                  # expect: flag
+    $started = Get-None
+}
+
+# A try block can stop anywhere, and a catch block may not run.
+$tried = Get-None
+try { $tried = @() } catch { $tried.Count } finally { $tried.Count }    # expect: flag 2
+
+# An inline read follows a loop like a plain one.
+$inLoop = @()
+foreach ($i in 1..2) {
+    ($inLoop).Count                                 # expect: flag
+    $inLoop = Get-None
+}
+
+# Known false hit: reassigned in every branch, yet the bare value still counts.
+$everyBranch = Get-None
+if ($c) { $everyBranch = @() } else { $everyBranch = @() }
+$everyBranch.Count                                  # expect: flag
+
+# Known miss: a copy made in a loop of a variable assigned later in it.
+$source = @()
+foreach ($i in 1..2) {
+    $copied = $source
+    $copied.Count
+    $source = Get-None
+}
+
 # Known miss: a script block that a command runs repeatedly is not a loop.
 $piped = @()
 1..2 | ForEach-Object { $piped.Count; $piped = Get-None }

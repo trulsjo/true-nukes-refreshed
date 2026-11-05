@@ -14,10 +14,10 @@
     nothing for nothing; @(...) does not help there, since an empty array has no .Name.
     A statement that always outputs exactly one object, such as one calling Start-Process
     -PassThru, is right for .Id and .Name: put the comment # strict-lists: one straight after it,
-    on the line where it ends (a ; between is fine). One object still has no .Count. In
-    $a, $b = ... only the first variable gets the one object. A marker after a line with several
-    unsafe reads covers none of them; nor does a marker after a string cover a statement inside
-    it.
+    on the line where it ends (a ; between is fine). One object still has no .Count, so the
+    marker never makes a .Count read safe. In $a, $b = ... only the first variable gets the one
+    object. A marker after a line with several unsafe reads covers none of them; nor does a
+    marker after a string cover a statement inside it.
 
     It parses each .ps1 that calls Set-StrictMode and gives each value a state:
       bare      a command result as PowerShell hands it over: Get-Thing, (Get-Thing),
@@ -30,25 +30,33 @@
     constraint does not wrap: [string[]] $x = Get-Thing gives $null for nothing.
 
     A variable's state at a read is that of every assignment that can reach it, in the same
-    function (or the script, outside any). Going back from the read, each assignment counts until
-    one that sits directly in a block holding the read, outside any branch, loop or script
-    block; an assignment in a branch the read is not in does not reach it. Inside a loop, the
-    assignments after the read also count, back to the last one directly in the loop body,
-    unless an assignment before the read in the same loop came first. A compound assignment
-    (+=) keeps the state the variable had, and a variable copied from another ($q = $p) takes
-    that one's state.
+    function (or the script, outside any). It errs towards flagging. Going back from the read,
+    each assignment counts until one that surely runs before it: one directly in a block holding
+    the read, not in a branch, a switch clause, a try, catch or finally block, a loop, a script
+    block or a for loop's iterator. An assignment in another branch of an if does not reach the
+    read on the same pass. Loops include switch, which runs its clauses once per item and runs
+    every clause that matches. Inside a loop, the assignments after the read also count, back to
+    the last one directly in the loop body, and so do those in other branches of an if in the
+    loop; this is skipped when an assignment before the read in the same loop surely ran, other
+    than a for loop's initializer. A compound assignment (+=) keeps the state the variable had,
+    and a variable copied from another ($q = $p) takes that one's state.
 
     Before the repository, it runs on its own fixtures in scripts/tests/strict-lists/, where each
-    line it must flag carries the comment # expect: flag, and fails if the two disagree. The
-    scan of scripts/ skips that directory.
+    line it must flag carries the comment # expect: flag, or # expect: flag 2 for two reads, and
+    fails unless it flags each line exactly that often. The scan of scripts/ skips that
+    directory.
 
     What it cannot see: a command result passed in as a parameter, a variable assigned in one
-    function and read in another, an assignment inside the read itself
-    (($j = Get-Thing).Count), $_ in a pipeline, a script block a command runs repeatedly, such
-    as ForEach-Object { }, which it does not treat as a loop, other properties (.Length, .Exit)
-    and results of method calls. It flags, wrongly, a foreach, if, switch or try used as a value
-    when no branch can give $null or one object, such as one whose branches each emit a hashtable
-    or an array as one object (, @(...)); mark such a statement. It runs no game.
+    function and read in another, a copy made inside a loop of a variable assigned later in that
+    loop, an assignment inside the read itself (($j = Get-Thing).Count), $_ in a pipeline, a
+    script block a command runs repeatedly, such as ForEach-Object { }, which it does not treat
+    as a loop, other properties (.Length, .Exit) and results of method calls.
+
+    What it flags wrongly: a foreach, if, switch or try used as a value when no branch can give
+    $null or one object, such as one whose branches each give a hashtable or an array as one
+    object (, @(...)); and a bare value reassigned in every branch of an if and its else. For .Id
+    and .Name, mark such a statement; for .Count, the marker does not help, so assign a wrapped
+    value instead. It runs no game.
 
 .PARAMETER Path
     Scripts or directories to check. Defaults to the repository's scripts/ directory.
@@ -127,9 +135,10 @@ function Get-Scope([Ast] $Node) {
 }
 
 function Get-Loops([Ast] $Node) {
-    # The loops around the node, innermost first, up to its function.
+    # The loops around the node, innermost first, up to its function. A switch counts: it runs
+    # its clauses once per item of a list, and every clause that matches.
     for ($p = $Node.Parent; $p -and $p -isnot [FunctionDefinitionAst]; $p = $p.Parent) {
-        if ($p -is [LoopStatementAst]) { $p }
+        if ($p -is [LoopStatementAst] -or $p -is [SwitchStatementAst]) { $p }
     }
 }
 
@@ -138,10 +147,21 @@ function Test-Inside([Ast] $Node, [Ast] $Outer) {
 }
 
 function Test-Direct([Ast] $Node, [Ast] $Outer) {
-    # Whether the node runs whenever $Outer's own statements do: no branch, loop or script block
-    # between them.
-    for ($p = $Node.Parent; $p -and $p -ne $Outer; $p = $p.Parent) {
+    # Whether the node surely runs, and runs first, whenever $Outer is reached: no branch, loop
+    # or script block between them. Reaching $Outer through a branch, a switch clause, a try,
+    # catch or finally block, or a for loop's iterator (which runs after the body) is not direct;
+    # through a condition it is.
+    $child = $Node
+    for ($p = $Node.Parent; $p; $p = $p.Parent) {
+        if ($p -eq $Outer) {
+            if ($p -is [IfStatementAst] -or $p -is [SwitchStatementAst] -or $p -is [TryStatementAst]) {
+                return $child -isnot [StatementBlockAst] -and $child -isnot [CatchClauseAst]
+            }
+            if ($p -is [ForStatementAst] -and $child -eq $p.Iterator) { return $false }
+            return $true
+        }
         foreach ($t in $conditional) { if ($p -is $t) { return $false } }
+        $child = $p
     }
     return $true
 }
@@ -150,6 +170,7 @@ function Get-Reaching([object[]] $Records, [Ast] $At, [switch] $Loops) {
     # The assignments, of one variable in one scope, whose value can be the one read at $At.
     $start = $At.Extent.StartOffset
     $stop = $null
+    $otherBranch = [System.Collections.Generic.List[object]]::new()
     $prior = @($Records | Where-Object { $_.Ast.Extent.EndOffset -le $start })
     for ($i = $prior.Count - 1; $i -ge 0; $i--) {
         $rec = $prior[$i]
@@ -157,15 +178,19 @@ function Get-Reaching([object[]] $Records, [Ast] $At, [switch] $Loops) {
         while ($common -and -not (Test-Inside $At $common)) { $common = $common.Parent }
         $branch = $rec.Ast
         while ($branch.Parent -ne $common) { $branch = $branch.Parent }
-        # An assignment in one branch of an if or switch never reaches a read in another.
-        if (($common -is [IfStatementAst] -or $common -is [SwitchStatementAst]) -and $branch -is [StatementBlockAst]) { continue }
+        # An assignment in one branch of an if never reaches a read in another on the same pass.
+        if ($common -is [IfStatementAst] -and $branch -is [StatementBlockAst]) { $otherBranch.Add($rec); continue }
         $rec
         if (Test-Direct $rec.Ast $common) { $stop = $rec; break }
     }
     if (-not $Loops) { return }
     foreach ($loop in @(Get-Loops $At)) {
-        # An assignment before the read in this loop sets the value on every pass.
-        if ($stop -and (Test-Inside $stop.Ast $loop)) { break }
+        # An assignment before the read in this loop sets the value on every pass, unless it is
+        # a for loop's initializer, which runs only once.
+        $init = if ($loop -is [ForStatementAst]) { $loop.Initializer } else { $null }
+        if ($stop -and (Test-Inside $stop.Ast $loop) -and -not ($init -and (Test-Inside $stop.Ast $init))) { break }
+        # On the next pass, another branch of an if in the loop can have run.
+        $otherBranch | Where-Object { Test-Inside $_.Ast $loop }
         $later = @($Records | Where-Object { $_.Ast.Extent.StartOffset -gt $start -and (Test-Inside $_.Ast $loop) })
         for ($i = $later.Count - 1; $i -ge 0; $i--) {
             $later[$i]
@@ -233,11 +258,20 @@ function Invoke-Check([IO.FileInfo[]] $Files) {
         # Every assignment to a variable, by scope and name, in source order, with the state it
         # leaves the variable in.
         $assigned = @{}
+        # While assignments are worked out, a variable resolves from those before it: later ones
+        # in a loop are not known yet, so a copy made inside a loop misses a value carried round it.
         $resolve = {
             param([VariableExpressionAst] $Var)
             $k = "$(Get-Scope $Var)|$(Get-VarName $Var)"
             if (-not $assigned.ContainsKey($k)) { return $null }
             Join-State @(Get-Reaching $assigned[$k].ToArray() $Var | ForEach-Object State)
+        }
+        # Once all are known, an inline read resolves round loops too, like a plain one.
+        $resolveAll = {
+            param([VariableExpressionAst] $Var)
+            $k = "$(Get-Scope $Var)|$(Get-VarName $Var)"
+            if (-not $assigned.ContainsKey($k)) { return $null }
+            Join-State @(Get-Reaching $assigned[$k].ToArray() $Var -Loops | ForEach-Object State)
         }
         $all = @($ast.FindAll({ param($n) $n -is [AssignmentStatementAst] }, $true) | Sort-Object { $_.Extent.StartOffset })
         foreach ($a in $all) {
@@ -272,7 +306,7 @@ function Invoke-Check([IO.FileInfo[]] $Files) {
         # Inline reads first, so a marker can tell whether its statement holds only one.
         $inline = @(foreach ($r in $reads) {
                 if ($r.Expression -is [VariableExpressionAst]) { continue }
-                $state = Get-Source $r.Expression $resolve
+                $state = Get-Source $r.Expression $resolveAll
                 if (Test-Unsafe $state $r.Member.Value) { [pscustomobject]@{ Read = $r; State = $state } }
             })
         foreach ($r in $reads) {
@@ -291,9 +325,10 @@ function Invoke-Check([IO.FileInfo[]] $Files) {
             } else {
                 $mine = @($inline | Where-Object { $_.Read -eq $r })
                 if (-not $mine.Count) { continue }
-                # A marked statement around the read covers it if it holds no other unsafe read.
+                # A marked statement around the read covers it if it holds no other unsafe read,
+                # and only for .Id and .Name: its one object has no .Count.
                 $covered = $false
-                for ($s = $r.Parent; $s -and -not $covered; $s = $s.Parent) {
+                for ($s = $r.Parent; $s -and -not $covered -and -not (Test-Unsafe 'one' $prop); $s = $s.Parent) {
                     if ($s -is [StatementAst] -and $markedEnds.Contains($s.Extent.EndOffset)) {
                         $covered = @($inline | Where-Object { Test-Inside $_.Read $s }).Count -eq 1
                     }
@@ -325,20 +360,32 @@ function Get-Files([string[]] $From) {
         })
 }
 
-# First the fixtures: the check must flag exactly the lines marked # expect: flag.
+# First the fixtures: the check must flag exactly the lines marked # expect: flag, as many times
+# as # expect: flag <n> says (once without a number).
 $script:checked = 0
 $fixtureFiles = Get-Files $fixtures
-$want = @(foreach ($f in $fixtureFiles) {
-        $n = 0
-        foreach ($l in Get-Content -LiteralPath $f.FullName) { $n++; if ($l -match '#\s*expect:\s*flag\b') { "$($f.Name):$n" } }
+$want = @{}
+foreach ($f in $fixtureFiles) {
+    $n = 0
+    foreach ($l in Get-Content -LiteralPath $f.FullName) {
+        $n++
+        if ($l -match '#\s*expect:\s*flag(?:\s+(\d+))?\b') { $want["$($f.Name):$n"] = if ($Matches[1]) { [int] $Matches[1] } else { 1 } }
+    }
+}
+$got = @{}
+foreach ($hit in @(Invoke-Check $fixtureFiles)) {
+    $k = "$(Split-Path $hit.File -Leaf):$($hit.Line)"
+    $got[$k] = 1 + $(if ($got.ContainsKey($k)) { $got[$k] } else { 0 })
+}
+$wrong = @(@($want.Keys) + @($got.Keys) | Sort-Object -Unique | ForEach-Object {
+        $w = if ($want.ContainsKey($_)) { $want[$_] } else { 0 }
+        $g = if ($got.ContainsKey($_)) { $got[$_] } else { 0 }
+        if ($w -ne $g) { "$($_): flagged $g time(s), expected $w" }
     })
-$got = @(Invoke-Check $fixtureFiles | ForEach-Object { "$(Split-Path $_.File -Leaf):$($_.Line)" } | Sort-Object -Unique)
-$missed = @($want | Where-Object { $_ -notin $got })
-$extra = @($got | Where-Object { $_ -notin $want })
-if (-not $want.Count -or $missed.Count -or $extra.Count) {
-    Write-Host "strict-lists: SELF-TEST FAILED on its fixtures in $([IO.Path]::GetRelativePath($root, $fixtures)) ($($want.Count) lines expected)"
-    $missed | ForEach-Object { Write-Host "  not flagged, but expected: $_" }
-    $extra | ForEach-Object { Write-Host "  flagged, but not expected: $_" }
+$expected = ($want.Values | Measure-Object -Sum).Sum
+if (-not $want.Count -or $wrong.Count) {
+    Write-Host "strict-lists: SELF-TEST FAILED on its fixtures in $([IO.Path]::GetRelativePath($root, $fixtures)) ($expected flags expected)"
+    $wrong | ForEach-Object { Write-Host "  $_" }
     exit 1
 }
 
@@ -355,5 +402,5 @@ if ($found.Count) {
     $found | ForEach-Object { Write-Host "  $($_.Text)" }
     exit 1
 }
-Write-Host "strict-lists: CHECK PASSED: $($want.Count) fixture lines flagged as expected; no unsafe .$($properties -join '/.') read in $script:checked strict-mode script(s)"
+Write-Host "strict-lists: CHECK PASSED: $expected fixture flags as expected; no unsafe .$($properties -join '/.') read in $script:checked strict-mode script(s)"
 exit 0
