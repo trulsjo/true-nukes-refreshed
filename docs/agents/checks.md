@@ -18,8 +18,8 @@ dependency on Warheads, and have its check assert that the stub's input reached 
 prototype. Factorio orders mods by the depth of their dependency chains, then by the natural order
 of their names (<https://lua-api.factorio.com/2.1.24/auxiliary/data-lifecycle.html>).
 `warheads-refreshed` has no hard dependency, so a stub that must load before it declares
-`"dependencies": []` and has a name sorting before `warheads-refreshed`. A stub declaring Warheads or
-`base`, or omitting `dependencies`, which gives the default `["base"]`, loads after Warheads. The
+`"dependencies": []` and has a name sorting before `warheads-refreshed`. A stub declaring Warheads
+or `base`, or omitting `dependencies`, which gives the default `["base"]`, loads after Warheads. The
 runs behind this are on #32.
 
 ## `scripts/port-probe.ps1`
@@ -51,17 +51,18 @@ minute, because headless runs never report achievements.
   covers no other Factorio, headless or played by hand. A run past its deadline prints `TIMEOUT` and
   exits 2, not FAIL's 1.
 
-**Temp directories.** Every run removes its probe-mod copy (`tnp-*`) and its load harness
-(`load-harness-*`) however it ends, unless `-KeepTemp`. The exceptions, and the runner's help says
-the same: a game the runner could not close keeps its harness directory, with its junctions removed
-and a warning naming it; and a run stopped mid-build before its own junction exists names the
-harness it may have left (#61, #62).
+**Temp directories.** However a run ends, it removes its probe-mod copy (`tnp-*`), and it removes
+its load harness (`load-harness-*`) too unless `-KeepTemp` keeps it. The exceptions, as the runner's
+help also says: a game the runner could not close keeps its harness directory, with its junctions
+removed and a warning naming it; and a run stopped mid-build before its own junction exists names
+the harness it may have left (#61, #62).
 
 **Its test.** `pwsh -NoProfile -File scripts/tests/probe-runner-cleanup.ps1` checks those temp
 directories and the windowed lock however a run ends: a setup failure, an error closing the window,
-a stop mid-build, normal runs, `-KeepTemp`, and Ctrl+C-style stops. It opens game windows and takes
-about ten minutes, so run it with no other Factorio open. `-Only setup,throws` picks cases. Run it
-after any change to the runner's setup, lock or `finally`.
+a stop mid-build, normal runs, `-KeepTemp`, and Ctrl+C-style stops. It points `TMP` and `TEMP` at a
+scratch folder of its own, so it can only close or delete what its runs made. It opens game windows
+and takes about ten minutes, so run it with no other Factorio open. `-Only setup,throws` picks
+cases. Run it after any change to the runner's setup, lock or `finally`.
 
 ## `scripts/freeze-time.ps1`
 

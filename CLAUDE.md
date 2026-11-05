@@ -55,7 +55,8 @@ delete follows: unlink each junction in its `mods` folder with `rmdir <link>` in
 
 - **`pwsh -NoProfile -File scripts/load-check.ps1`** loads the three mods and creates a map.
 - **`pwsh -NoProfile -File scripts/port-probe.ps1 -Probe <name>`** runs one in-game probe; it passes
-  on `PROBE RESULT PASS`. `achieve`, `achievecheat` and `everything` open a game window.
+  on `PROBE RESULT PASS`. `achieve`, `achievecheat` and `everything` open a game window and take
+  `-TestTicks 60000`; `docs/agents/checks.md` says why.
 - **`scripts/freeze-time.ps1`** times a 15 kt blast's freeze on 2.0 against 2.1, and **takes hours**.
 
 **Before running, changing or adding a check, read `docs/agents/checks.md`:** each script's options
