@@ -344,23 +344,26 @@ function Invoke-Check([IO.FileInfo[]] $Files) {
             }
             $line = $r.Extent.StartLineNumber
             [pscustomobject]@{
-                File = $file.FullName
-                Line = $line
-                Text = "$($where):$($line): .$prop $why; $fix`n      $($lines[$line - 1].Trim())"
+                File   = $file.FullName
+                Line   = $line
+                Offset = $r.Extent.StartOffset
+                Text   = "$($where):$($line): .$prop $why; $fix`n      $($lines[$line - 1].Trim())"
             }
         }
     }
 }
 
-function Get-FixtureThrows([IO.FileInfo] $File) {
-    # Runs a fixture under its own strict mode with every read wrapped so that a throw is
-    # recorded, not fatal, and gives, per line, how many of its reads threw at least once.
-    # Start-Process is replaced by this process's own Process object: one object, with an .Id and
-    # a .Name, and no .Count.
-    $text = Get-Content -LiteralPath $File.FullName -Raw
+function Get-FixtureRun([IO.FileInfo] $File) {
+    # Runs a fixture in a fresh runspace, so it sees none of this script's variables and cannot
+    # move its location, with every read wrapped to record that it ran and whether strict mode
+    # refused it (PropertyNotFoundStrict); any other error stops the run. The read's value passes
+    # through unchanged, arrays and all. Start-Process is replaced by this process's own Process
+    # object: one object, with an .Id and a .Name, and no .Count. Gives each read: its offset,
+    # line and property, and whether it ran and threw.
     $tokens = $null
     $errors = $null
-    $ast = [Parser]::ParseInput($text, [ref] $tokens, [ref] $errors)
+    $ast = [Parser]::ParseFile($File.FullName, [ref] $tokens, [ref] $errors)
+    $text = $ast.Extent.Text
     $reads = @($ast.FindAll({ param($n)
                 $n -is [MemberExpressionAst] -and $n -isnot [InvokeMemberExpressionAst] -and
                 $n.Member -is [StringConstantExpressionAst] -and $n.Member.Value -in $properties
@@ -374,16 +377,29 @@ function Get-FixtureThrows([IO.FileInfo] $File) {
     foreach ($r in $reads) {
         $s = $r.Extent.StartOffset
         [void] $code.Remove($s, $r.Extent.EndOffset - $s)
-        [void] $code.Insert($s, "`$(try { $($r.Extent.Text) } catch { `$null = `$__strictListsThrown.Add($s) })")
+        [void] $code.Insert($s, ("`$(try { `$null = `$__ran.Add($s); Write-Output -NoEnumerate -InputObject ($($r.Extent.Text)) } " +
+                "catch { if (`$_.FullyQualifiedErrorId -like 'PropertyNotFoundStrict*') { `$null = `$__threw.Add($s) } else { throw } })"))
     }
-    $prelude = "function Start-Process { [System.Diagnostics.Process]::GetCurrentProcess() }`n" +
-        "`$__strictListsThrown = [System.Collections.Generic.HashSet[int]]::new()`n"
-    $out = @(& ([scriptblock]::Create($prelude + $code.ToString() + "`n, `$__strictListsThrown")))
-    $line = @{}
-    foreach ($r in $reads) { $line[$r.Extent.StartOffset] = $r.Extent.StartLineNumber }
-    $byLine = @{}
-    foreach ($s in $out[-1]) { $byLine[$line[$s]] = 1 + $(if ($byLine.ContainsKey($line[$s])) { $byLine[$line[$s]] } else { 0 }) }
-    $byLine
+    $prelude = "`$ErrorActionPreference = 'Stop'`n" +
+        "function Start-Process { [System.Diagnostics.Process]::GetCurrentProcess() }`n" +
+        "`$__ran = [System.Collections.Generic.HashSet[int]]::new()`n" +
+        "`$__threw = [System.Collections.Generic.HashSet[int]]::new()`n"
+    $epilogue = "`n[pscustomobject]@{ Ran = `$__ran; Threw = `$__threw }"
+    $ps = [powershell]::Create()
+    try {
+        $out = @($ps.AddScript($prelude + $code.ToString() + $epilogue).Invoke())
+    } finally { $ps.Dispose() }
+    $result = $out[-1]
+    foreach ($r in $reads) {
+        $s = $r.Extent.StartOffset
+        [pscustomobject]@{
+            Offset = $s
+            Line   = $r.Extent.StartLineNumber
+            Read   = ".$($r.Member.Value)"
+            Ran    = $result.Ran.Contains($s)
+            Threw  = $result.Threw.Contains($s)
+        }
+    }
 }
 
 function Get-Files([string[]] $From) {
@@ -407,7 +423,8 @@ foreach ($f in $fixtureFiles) {
     }
 }
 $got = @{}
-foreach ($hit in @(Invoke-Check $fixtureFiles)) {
+$fixtureHits = @(Invoke-Check $fixtureFiles)
+foreach ($hit in $fixtureHits) {
     $k = "$(Split-Path $hit.File -Leaf):$($hit.Line)"
     $got[$k] = 1 + $(if ($got.ContainsKey($k)) { $got[$k] } else { 0 })
 }
@@ -423,18 +440,27 @@ if (-not $want.Count -or $wrong.Count) {
     exit 1
 }
 
-# Then PowerShell itself: run each strict-mode fixture and require each line's reads to throw
-# exactly as often as the line expects flags, so a fixture cannot pin a wrong belief about strict
-# mode. A line marked "known false hit" or "known miss" is where the check and PowerShell disagree.
+# Then PowerShell itself: run each strict-mode fixture and require, read by read, that every
+# read runs and that exactly the flagged ones throw, so a fixture cannot pin a wrong belief about
+# strict mode. On a line marked "known false hit", a flagged read may run safely; on one marked
+# "known miss", an unflagged read may throw. Neither excuses the other kind, or a read that never ran.
+$flagged = [System.Collections.Generic.HashSet[string]]::new()
+foreach ($hit in $fixtureHits) { [void] $flagged.Add("$(Split-Path $hit.File -Leaf):$($hit.Offset)") }
 $untrue = @(foreach ($f in $fixtureFiles) {
         $source = @(Get-Content -LiteralPath $f.FullName)
         if (-not @($source -match '^\s*Set-StrictMode\b').Count) { continue }
-        try { $threw = Get-FixtureThrows $f } catch { "$($f.Name): stopped when run: $($_.Exception.Message)"; continue }
-        for ($n = 1; $n -le $source.Count; $n++) {
-            if ($source[$n - 1] -match '#.*\bknown (false hit|miss)\b') { continue }
-            $w = if ($want.ContainsKey("$($f.Name):$n")) { $want["$($f.Name):$n"] } else { 0 }
-            $t = if ($threw.ContainsKey($n)) { $threw[$n] } else { 0 }
-            if ($w -ne $t) { "$($f.Name):$($n): $t read(s) threw when run, but the line expects $w flag(s)" }
+        try { $run = @(Get-FixtureRun $f) } catch { "$($f.Name): stopped when run: $($_.Exception.Message)"; continue }
+        foreach ($read in $run) {
+            $at = "$($f.Name):$($read.Line): $($read.Read)"
+            $text = $source[$read.Line - 1]
+            $isFlagged = $flagged.Contains("$($f.Name):$($read.Offset)")
+            if (-not $read.Ran) { "$at never ran, so the fixture proves nothing about it"; continue }
+            if ($isFlagged -and -not $read.Threw -and $text -notmatch '#.*\bknown false hit\b') {
+                "$at is flagged, but strict mode let it through"
+            }
+            if ($read.Threw -and -not $isFlagged -and $text -notmatch '#.*\bknown miss\b') {
+                "$at threw under strict mode, but is not flagged"
+            }
         }
     })
 if ($untrue.Count) {

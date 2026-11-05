@@ -77,7 +77,7 @@ foreach ($i in 1..2) {
 
 $literal = 1..3
 $literal.Count
-$wrapped | ForEach-Object { $_.Count }
+@(1) | ForEach-Object { $_.Count }                  # known miss: $_ is not followed
 
 function Get-Inner {
     $bare.Count                                     # known miss: assigned in another function
