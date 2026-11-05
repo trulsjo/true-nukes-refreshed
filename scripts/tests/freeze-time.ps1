@@ -6,8 +6,9 @@
     One log has a known freeze: each blast's window must start at the hit tick and hold AFTER
     ticks, so the creation tick before the hit, made slow here, must count nowhere. The other log
     lacks its second blast, and the script must stop on it without printing a table (#33). So must
-    -Logs when its wildcard matches no log, or when the logs disagree on AFTER. The free memory a
-    kept log records is printed, and a log without it says so. Measuring it needs a real session.
+    -Logs when its wildcard matches no log, when the logs disagree on AFTER, or when their names mix
+    headless and windowed sessions. The free memory a kept log records is printed, and a log
+    without it says so. Measuring it needs a real session.
 
 .EXAMPLE
     pwsh -File scripts/tests/freeze-time.ps1
@@ -85,6 +86,16 @@ try {
     $code = $LASTEXITCODE
     Check ($code -ne 0) "logs that disagree on AFTER exit non-zero (exit $code)"
     Check ($out -match '2\.1-headless-2' -and $out -match 'after 1140' -and $out -match '1150') "the message names the log and both AFTER values"
+    Check ($out -notmatch '\| Version') "no table is printed"
+
+    $mixed = Join-Path $dir 'mixed'
+    New-Item -ItemType Directory $mixed | Out-Null
+    Copy-Item $good (Join-Path $mixed '2.1-headless-1.log')
+    Copy-Item $good (Join-Path $mixed '2.1-windowed-1.log')
+    $out = & pwsh -NoProfile -File $script -Logs (Join-Path $mixed '*.log') 2>&1 | Out-String
+    $code = $LASTEXITCODE
+    Check ($code -ne 0) "logs that mix headless and windowed exit non-zero (exit $code)"
+    Check ($out -match 'headless and windowed' -and $out -match '2\.1-windowed-1\.log') "the message names both modes and the logs"
     Check ($out -notmatch '\| Version') "no table is printed"
     if ($failed) { Write-Host $out }
 }

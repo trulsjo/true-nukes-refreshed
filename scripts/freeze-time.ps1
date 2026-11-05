@@ -52,7 +52,8 @@
 .PARAMETER Logs
     Session logs kept from earlier runs, as paths or wildcards: the table is made from them, and no
     game is run. Through -File only one value passes, so give several logs as one wildcard. It is
-    an error if no log matches, or if the logs disagree on AFTER.
+    an error if no log matches, if the logs disagree on AFTER, or if their names, as -LogDirectory
+    gives them, mix headless and windowed sessions.
 
 .EXAMPLE
     pwsh -File scripts/freeze-time.ps1 -Sessions 3
@@ -169,6 +170,9 @@ function Read-Session([string] $Log) {
 if ($Logs) {
     $found = @(Get-ChildItem $Logs -File | Sort-Object Name)
     if (-not $found) { throw "No log matches $($Logs -join ', ')" }
+    # A row is keyed by version only, so the logs must share one mode. Only the name holds it.
+    $modes = @($found | ForEach-Object { if ($_.Name -match '-(headless|windowed)-\d+\.log$') { $Matches[1] } } | Sort-Object -Unique)
+    if ($modes.Count -gt 1) { throw "The logs mix $($modes -join ' and ') sessions: $(($found | ForEach-Object Name) -join ', ')" }
     foreach ($log in $found) { Write-Host $log.Name; Read-Session $log.FullName }
 } else {
     if (-not (Test-Path $Save)) {
