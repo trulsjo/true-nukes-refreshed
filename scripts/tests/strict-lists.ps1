@@ -352,6 +352,40 @@ function Invoke-Check([IO.FileInfo[]] $Files) {
     }
 }
 
+function Get-FixtureThrows([IO.FileInfo] $File) {
+    # Runs a fixture under its own strict mode with every read wrapped so that a throw is
+    # recorded, not fatal, and gives, per line, how many of its reads threw at least once.
+    # Start-Process is replaced by this process's own Process object: one object, with an .Id and
+    # a .Name, and no .Count.
+    $text = Get-Content -LiteralPath $File.FullName -Raw
+    $tokens = $null
+    $errors = $null
+    $ast = [Parser]::ParseInput($text, [ref] $tokens, [ref] $errors)
+    $reads = @($ast.FindAll({ param($n)
+                $n -is [MemberExpressionAst] -and $n -isnot [InvokeMemberExpressionAst] -and
+                $n.Member -is [StringConstantExpressionAst] -and $n.Member.Value -in $properties
+            }, $true) | Sort-Object { $_.Extent.StartOffset } -Descending)
+    foreach ($r in $reads) {
+        if (@($reads | Where-Object { $_ -ne $r -and (Test-Inside $_ $r) }).Count) {
+            throw "$($File.Name):$($r.Extent.StartLineNumber): a read inside another read cannot be run as a fixture"
+        }
+    }
+    $code = [System.Text.StringBuilder]::new($text)
+    foreach ($r in $reads) {
+        $s = $r.Extent.StartOffset
+        [void] $code.Remove($s, $r.Extent.EndOffset - $s)
+        [void] $code.Insert($s, "`$(try { $($r.Extent.Text) } catch { `$null = `$__strictListsThrown.Add($s) })")
+    }
+    $prelude = "function Start-Process { [System.Diagnostics.Process]::GetCurrentProcess() }`n" +
+        "`$__strictListsThrown = [System.Collections.Generic.HashSet[int]]::new()`n"
+    $out = @(& ([scriptblock]::Create($prelude + $code.ToString() + "`n, `$__strictListsThrown")))
+    $line = @{}
+    foreach ($r in $reads) { $line[$r.Extent.StartOffset] = $r.Extent.StartLineNumber }
+    $byLine = @{}
+    foreach ($s in $out[-1]) { $byLine[$line[$s]] = 1 + $(if ($byLine.ContainsKey($line[$s])) { $byLine[$line[$s]] } else { 0 }) }
+    $byLine
+}
+
 function Get-Files([string[]] $From) {
     @($From | ForEach-Object {
             if (Test-Path -LiteralPath $_ -PathType Container) {
@@ -389,6 +423,26 @@ if (-not $want.Count -or $wrong.Count) {
     exit 1
 }
 
+# Then PowerShell itself: run each strict-mode fixture and require each line's reads to throw
+# exactly as often as the line expects flags, so a fixture cannot pin a wrong belief about strict
+# mode. A line marked "known false hit" or "known miss" is where the check and PowerShell disagree.
+$untrue = @(foreach ($f in $fixtureFiles) {
+        $source = @(Get-Content -LiteralPath $f.FullName)
+        if (-not @($source -match '^\s*Set-StrictMode\b').Count) { continue }
+        try { $threw = Get-FixtureThrows $f } catch { "$($f.Name): stopped when run: $($_.Exception.Message)"; continue }
+        for ($n = 1; $n -le $source.Count; $n++) {
+            if ($source[$n - 1] -match '#.*\bknown (false hit|miss)\b') { continue }
+            $w = if ($want.ContainsKey("$($f.Name):$n")) { $want["$($f.Name):$n"] } else { 0 }
+            $t = if ($threw.ContainsKey($n)) { $threw[$n] } else { 0 }
+            if ($w -ne $t) { "$($f.Name):$($n): $t read(s) threw when run, but the line expects $w flag(s)" }
+        }
+    })
+if ($untrue.Count) {
+    Write-Host "strict-lists: SELF-TEST FAILED: its fixtures disagree with strict mode itself"
+    $untrue | ForEach-Object { Write-Host "  $_" }
+    exit 1
+}
+
 $script:checked = 0
 $fixtureRoot = (Resolve-Path $fixtures).Path.TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
 $given = @(Get-Files $Path)
@@ -402,5 +456,5 @@ if ($found.Count) {
     $found | ForEach-Object { Write-Host "  $($_.Text)" }
     exit 1
 }
-Write-Host "strict-lists: CHECK PASSED: $expected fixture flags as expected; no unsafe .$($properties -join '/.') read in $script:checked strict-mode script(s)"
+Write-Host "strict-lists: CHECK PASSED: $expected fixture flags as expected and as strict mode throws; no unsafe .$($properties -join '/.') read in $script:checked strict-mode script(s)"
 exit 0

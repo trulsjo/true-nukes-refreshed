@@ -17,7 +17,13 @@ prototype validates and every `on_init` runs. It runs no ticks.
   exactly one object ends with the comment `# strict-lists: one`, which makes its `.Id` and
   `.Name` safe; one object still has no `.Count`. It first runs on its own fixtures
   in `scripts/tests/strict-lists/`, where each line it must flag says `# expect: flag`; a change to
-  the check goes with a fixture line that fails without it.
+  the check goes with a fixture line that fails without it. It also runs those fixtures under
+  strict mode, every read caught, and fails unless exactly the flagged reads throw, so a fixture
+  line is a fact about PowerShell, not only about the check: a new fixture line must run, and a
+  line where the two disagree on purpose says `known false hit` or `known miss`. Then
+  `scripts/tests/script-help.ps1`, which fails if `Get-Help` cannot read a script's comment-based
+  help. A help line that starts with a dot but is no help keyword, such as one opening with
+  `.Count`, makes PowerShell drop the whole block silently.
 - `-Check scripts/tests/shotgun-items.ps1` also requires the six generated shotgun items.
 - `scripts/tests/recipe-category.ps1` loads Warheads alone under a mod that sets `recipe_category`.
 

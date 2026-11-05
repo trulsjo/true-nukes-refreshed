@@ -1,5 +1,5 @@
-# Fixture for strict-lists.ps1, never run: which assignments reach a read through branches and
-# loops. Lines to flag end in "expect: flag".
+# Fixture for strict-lists.ps1: which assignments reach a read through branches and loops.
+# Lines to flag end in "expect: flag". The self-test also runs it under strict mode (see count.ps1).
 Set-StrictMode -Version Latest
 function Get-None { }
 $c = $true
@@ -10,7 +10,7 @@ $either.Count                                       # expect: flag
 if ($c) { $both = @(Get-None) } else { $both = @() }
 $both.Count
 $maybe = Get-None
-if ($c) { $maybe = @() }
+if (-not $c) { $maybe = @() }
 $maybe.Count                                        # expect: flag
 
 # An assignment in one branch never reaches a read in another.
@@ -32,7 +32,7 @@ $sometimes = @()
 foreach ($i in 1..2) {
     $sometimes.Count                                # expect: flag
     $sometimes = Get-None
-    if ($c) { $sometimes = @($sometimes) }
+    if (-not $c) { $sometimes = @($sometimes) }
 }
 
 # An assignment before the read in the loop comes first only if it surely runs.
@@ -68,7 +68,8 @@ switch (1, 2) { default { $items.Count; $items = Get-None } }    # expect: flag
 
 # A for loop's iterator runs after the body, and its initializer only once.
 $stepped = Get-None
-for ($i = 0; $i -lt 2; $stepped = @()) { $stepped.Count }    # expect: flag
+for ($i = 0; $i++ -lt 2; $stepped = @()) { $stepped.Count }    # expect: flag
+$i = 0
 for ($started = @(); $i -lt 2; $i++) {
     $started.Count                                  # expect: flag
     $started = Get-None
@@ -76,7 +77,7 @@ for ($started = @(); $i -lt 2; $i++) {
 
 # A try block can stop anywhere, and a catch block may not run.
 $tried = Get-None
-try { $tried = @() } catch { $tried.Count } finally { $tried.Count }    # expect: flag 2
+try { throw 'stop'; $tried = @() } catch { $tried.Count } finally { $tried.Count }    # expect: flag 2
 
 # An inline read follows a loop like a plain one.
 $inLoop = @()
@@ -85,19 +86,19 @@ foreach ($i in 1..2) {
     $inLoop = Get-None
 }
 
-# Known false hit: reassigned in every branch, yet the bare value still counts.
+# Reassigned in every branch, yet the bare value still counts.
 $everyBranch = Get-None
 if ($c) { $everyBranch = @() } else { $everyBranch = @() }
-$everyBranch.Count                                  # expect: flag
+$everyBranch.Count                                  # expect: flag  # known false hit
 
-# Known miss: a copy made in a loop of a variable assigned later in it.
+# A copy made in a loop of a variable assigned later in it.
 $source = @()
 foreach ($i in 1..2) {
     $copied = $source
-    $copied.Count
+    $copied.Count                                   # known miss
     $source = Get-None
 }
 
-# Known miss: a script block that a command runs repeatedly is not a loop.
+# A script block that a command runs repeatedly is not a loop.
 $piped = @()
-1..2 | ForEach-Object { $piped.Count; $piped = Get-None }
+1..2 | ForEach-Object { $piped.Count; $piped = Get-None }    # known miss
