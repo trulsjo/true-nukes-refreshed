@@ -384,18 +384,21 @@ function Get-FixtureRun([IO.FileInfo] $File) {
         "function Start-Process { [System.Diagnostics.Process]::GetCurrentProcess() }`n" +
         "`$__ran = [System.Collections.Generic.HashSet[int]]::new()`n" +
         "`$__threw = [System.Collections.Generic.HashSet[int]]::new()`n"
-    $epilogue = "`n[pscustomobject]@{ StrictListsEnd = `$true; Ran = `$__ran; Threw = `$__threw }"
+    # The results are read from the runspace's own variables, not from the fixture's output,
+    # which the fixture controls.
+    $epilogue = "`n`$__strictListsDone = `$true"
     $ps = [powershell]::Create()
     try {
-        $out = @($ps.AddScript($prelude + $code.ToString() + $epilogue).Invoke())
+        [void] $ps.AddScript($prelude + $code.ToString() + $epilogue).Invoke()
         # An error that does not stop the script, such as Write-Error -ErrorAction Continue,
         # lands in the error stream, not in an exception.
         if ($ps.HadErrors -and $ps.Streams.Error.Count) { throw "it wrote an error: $($ps.Streams.Error[0])" }
+        $state = $ps.Runspace.SessionStateProxy
+        if ($state.GetVariable('__strictListsDone') -ne $true) {
+            throw 'it ended before its last line, by a return, an exit or a break outside a loop'
+        }
+        $result = @{ Ran = $state.GetVariable('__ran'); Threw = $state.GetVariable('__threw') }
     } finally { $ps.Dispose() }
-    $result = if ($out.Count) { $out[-1] } else { $null }
-    if (-not ($result -and $result.PSObject.Properties['StrictListsEnd'])) {
-        throw 'it ended before its last line, by a return, an exit or a break outside a loop'
-    }
     foreach ($r in $reads) {
         $s = $r.Extent.StartOffset
         [pscustomobject]@{
@@ -463,16 +466,25 @@ $untrue = @(foreach ($f in $fixtureFiles) {
             $isFlagged = $flagged.Contains("$($f.Name):$($read.Offset)")
             if (-not $read.Ran) { "$at never ran, so the fixture proves nothing about it"; continue }
             if ($isFlagged -and -not $read.Threw) {
-                if ($text -match '#.*\bknown false hit\b') { $excused[$read.Line] = $true } else { "$at is flagged, but strict mode let it through" }
+                if ($text -match '#.*\bknown false hit\b') { $excused["$($read.Line)|false hit"] = $true } else { "$at is flagged, but strict mode let it through" }
             }
             if ($read.Threw -and -not $isFlagged) {
-                if ($text -match '#.*\bknown miss\b') { $excused[$read.Line] = $true } else { "$at threw under strict mode, but is not flagged" }
+                if ($text -match '#.*\bknown miss\b') { $excused["$($read.Line)|miss"] = $true } else { "$at threw under strict mode, but is not flagged" }
             }
         }
-        # A tag whose disagreement has gone would quietly excuse the next one on its line.
-        foreach ($n in @($run | ForEach-Object Line | Sort-Object -Unique)) {
-            if ($source[$n - 1] -match '#.*\bknown (false hit|miss)\b' -and -not $excused.ContainsKey($n)) {
-                "$($f.Name):$($n): says known $($Matches[1]), but none of its reads disagree with strict mode now"
+        # A tag whose disagreement has gone would quietly excuse the next one on its line: each
+        # tag on a line with reads must excuse one of them, and a tag on a comment-only line,
+        # left behind when its read went, has nothing to excuse.
+        $readLines = @($run | ForEach-Object Line | Sort-Object -Unique)
+        for ($n = 1; $n -le $source.Count; $n++) {
+            if ($n -in $readLines) {
+                foreach ($kind in 'false hit', 'miss') {
+                    if ($source[$n - 1] -match "#.*\bknown $kind\b" -and -not $excused.ContainsKey("$n|$kind")) {
+                        "$($f.Name):$($n): says known $kind, but none of its reads disagree with strict mode that way now"
+                    }
+                }
+            } elseif ($source[$n - 1] -match '^\s*#\s*known (false hit|miss)\b') {
+                "$($f.Name):$($n): says known $($Matches[1]) on a line with no reads"
             }
         }
     })
