@@ -79,7 +79,9 @@ profile, and one started from Git Bash can print errors before the script runs.
   `-TestTicks 60000`: beside another Factorio window they time out without a PROBE line, though the
   code is fine. They start the game at `video-memory-usage=low`, and still stall beside a window at
   the default setting. Windowed, `-TestTicks` never reaches the game; it only sets how long the
-  runner waits, `TestTicks / 60 + 300` seconds.
+  runner waits, `TestTicks / 60 + 300` seconds. Windowed runs take turns on a machine-wide lock,
+  so a second one waits and says so, but the lock covers no other Factorio, headless or played by
+  hand; a run past its deadline prints `TIMEOUT` and exits 2, not FAIL's 1.
 - **`scripts/freeze-time.ps1`** times a 15 kt blast's freeze on 2.0 with Continued against 2.1 with
   these mods (#25). It needs a 2.0 install and the Continued zips, and **takes hours**: run it only
   to re-measure. Its numbers are on #25 and #29, and the slowdown it found is open as #29. `-Logs`
