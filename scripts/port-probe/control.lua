@@ -472,18 +472,21 @@ probes.blastdamage = function()
       say("tree weak hits (rolls " .. tw_lo .. "-" .. tw_hi .. ") losses", table.concat(tree_weak, ","),
         tree_weak_ok and "unchanged" or "CHANGED")
       if not tree_weak_ok then ok = false end
+      -- A hit at or below the flat resistance must not destroy the tree. If one did, the next
+      -- losses would read a destroyed entity, so the probe ends here with a FAIL instead.
+      local destroyed = "a resistant tree was destroyed by hits below its flat explosion resistance"
+      if not tree.valid then return finish(false, destroyed) end
       -- The tree branch works the stage out from health after every hit it survives, so a tree set
       -- to half health changes stage even on a hit that takes nothing. At full health a hit that
       -- takes nothing must keep the stage.
-      if tree.valid then
-        tree.tree_stage_index = stage
-        local full = losses(tree, HITS, TREE_WEAK)
-        local stage_ok = tree.valid and #full == HITS and tree.tree_stage_index == stage
-        for _, v in pairs(full) do if v ~= 0 then stage_ok = false end end
-        say("tree weak hits at full health: stage", stage, "->", tree.valid and tree.tree_stage_index,
-          stage_ok and "unchanged" or "CHANGED")
-        if not stage_ok then ok = false end
-      end
+      tree.tree_stage_index = stage
+      local full = losses(tree, HITS, TREE_WEAK)
+      if not tree.valid then return finish(false, destroyed) end
+      local stage_ok = #full == HITS and tree.tree_stage_index == stage
+      for _, v in pairs(full) do if v ~= 0 then stage_ok = false end end
+      say("tree weak hits at full health: stage", stage, "->", tree.tree_stage_index,
+        stage_ok and "unchanged" or "CHANGED")
+      if not stage_ok then ok = false end
       local ts_lo, ts_hi = tree_rolls(TREE_STRONG)
       local tree_strong = losses(tree, HITS, TREE_STRONG, tree_health)
       local tree_strong_ok, tree_shown = tree.valid and #tree_strong == HITS, {}

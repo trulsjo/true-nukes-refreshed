@@ -12,7 +12,7 @@ Date: 2026-11-02
     - Fixed the lose-nuke achievement never unlocking. Like the other achievements, it stays locked once cheat mode has been on.
     - Fixed the clearAllCraters command failing on an unknown tile.
     - Fixed getGlobal and setGlobal in the remote interface, which used the 1.1 global table.
-    - Fixed a blast hit weaker than an entity's or a tree's flat explosion resistance healing it instead of doing nothing.
+    - Fixed a blast hit weaker than an entity's flat explosion resistance (trees included) healing it instead of doing nothing.
   Info:
     - A True Nukes Continued save keeps its items, entities and research, and test sites already built keep working. Blasts still running and crater healing are lost, and ground explored later next to a crater of 100 kt or more generates untouched.
     - Based on True Nukes by BicycleEater and True Nukes Continued by Daimonfire.
