@@ -191,7 +191,7 @@ if ($Logs) {
 
 function Stats($xs) { $s = @($xs | Sort-Object); '{0:N1} ({1:N1}-{2:N1})' -f $s[[int][math]::Floor(($s.Count - 1) / 2)], $s[0], $s[-1] }
 Write-Host ''
-Write-Host "| Version | Blast | Sessions | Blast tick, s | Freeze, s | Lost vs 60 UPS over $([math]::Round($after / 60)) s, s |"
+Write-Host "| Version | Blast | Sessions | Hit tick, s | Freeze, s | Lost vs 60 UPS over $([math]::Round($after / 60)) s, s |"
 Write-Host '|---|---|---|---|---|---|'
 foreach ($v in $results.Keys | Sort-Object) {
     foreach ($i in $results[$v].Keys | Sort-Object) {
