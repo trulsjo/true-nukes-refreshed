@@ -6,7 +6,8 @@
     Exit 0 means every prototype validated, every on_init ran and a map was created. The harness
     runs no ticks and loads no sprites or sounds; its own header says what it cannot see. So
     tests/asset-paths.ps1 runs first, and the game does not start if a literal path in the Lua
-    names no file.
+    names no file. Then tests/strict-lists.ps1, which stops the run if a strict-mode script under
+    scripts/ reads .Count, .Id or .Name off a command result not wrapped in @().
 
 .PARAMETER FactorioExe
     Path to factorio.exe. Defaults to the harness's own lookup: $env:FACTORIO_EXE, then Steam.
@@ -34,6 +35,8 @@ $harness = Join-Path $root 'vendor/grado-factorio-tools/scripts/load-harness.ps1
 if (-not (Test-Path $harness)) { throw "No load harness at $harness. Run: git submodule update --init" }
 
 & (Join-Path $PSScriptRoot 'tests/asset-paths.ps1') -Root $root
+if ($LASTEXITCODE) { exit $LASTEXITCODE }
+& (Join-Path $PSScriptRoot 'tests/strict-lists.ps1')
 if ($LASTEXITCODE) { exit $LASTEXITCODE }
 
 $mods = @('true-nukes-refreshed', 'warheads-refreshed', 'true-nukes-graphics-refreshed') |
