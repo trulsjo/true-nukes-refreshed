@@ -176,8 +176,10 @@ prefix, the format the other mod projects use:
 ```
 
 The rules are shared, in
-<https://github.com/trulsjo/grado-factorio-tools/blob/main/docs/commit-convention.md>. This
-repository's own parts:
+[`vendor/grado-factorio-tools/docs/commit-convention.md`](vendor/grado-factorio-tools/docs/commit-convention.md),
+the version this repository's pin checks. If the submodule is not initialised, read it at
+<https://github.com/trulsjo/grado-factorio-tools/blob/main/docs/commit-convention.md>, but that
+shows `main`, which may be ahead of the pin. This repository's own parts:
 
 - **Scope vocabulary:** the mod (`nukes`, `warheads`, `graphics`) or the area (`data`, `runtime`,
   `settings`, `locale`, `compat`, `repo`).
