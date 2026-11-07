@@ -3,6 +3,10 @@
 The scripts that check the mods, and the tests that check the scripts. `CLAUDE.md` *Checks* has the
 setup every run needs: the pinned `FACTORIO_EXE`, the submodule, the commit hook and `-NoProfile`.
 
+`.github/workflows/check.yml` runs what needs no game on every pull request and push to `main`:
+the commit check, the mode of each `.githooks/` file, and the three tests `load-check.ps1` runs
+before the game. A test added to `load-check.ps1` gets a step there too.
+
 ## `scripts/load-check.ps1`
 
 `pwsh -NoProfile -File scripts/load-check.ps1` loads the three mods and creates a map: every

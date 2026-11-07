@@ -3,9 +3,11 @@
 # starts Factorio. The load check itself and the port probes need the game, so they run only where
 # a person starts them (docs/agents/checks.md).
 #
-# The range is rf's: a pull request's base.sha..head.sha, and on a push to main the commits that
-# push brought, since sessions commit to main directly. Neither reaches back into the Continued
-# history, which the convention's check would fail.
+# The range is realistic-fusion-refreshed's gates.yml's: a pull request's base.sha..head.sha, and
+# on a push to main the commits that push brought, since sessions commit to main directly. Neither
+# reaches back into the Continued history, which the convention's check would fail. A pull request
+# has at least one commit, so an empty range there fails (-RequireCommits). A push range can be
+# empty, and a force-push to main can name a before commit the checkout lacks, which fails.
 #
 # Windows, because that is where every one of these scripts has passed, and asset-paths.ps1 finds a
 # file whose name differs only in case there, as the game on Windows does.
@@ -38,7 +40,10 @@ jobs:
             ${{ github.event_name == 'pull_request'
                 && format('{0}..{1}', github.event.pull_request.base.sha, github.event.pull_request.head.sha)
                 || format('{0}..{1}', github.event.before, github.event.after) }}
-        run: pwsh -NoProfile -File vendor/grado-factorio-tools/scripts/commit-check.ps1 -Range $env:RANGE
+          REQUIRE: ${{ github.event_name == 'pull_request' }}
+        run: |
+          $require = @{ RequireCommits = $env:REQUIRE -eq 'true' }
+          & ./vendor/grado-factorio-tools/scripts/commit-check.ps1 -Range $env:RANGE @require
 
       # Off Windows git runs a hook only if its mode is 100755, and skips it silently otherwise.
       - name: Hold every .githooks/ file to mode 100755
