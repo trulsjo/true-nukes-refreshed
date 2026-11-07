@@ -1,0 +1,66 @@
+# The checks that need no game (#69, from trulsjo/grado-factorio-tools#320): the commit messages,
+# the mode of each .githooks/ file, and the three tests scripts/load-check.ps1 runs before it
+# starts Factorio. The load check itself and the port probes need the game, so they run only where
+# a person starts them (docs/agents/checks.md).
+#
+# The range is rf's: a pull request's base.sha..head.sha, and on a push to main the commits that
+# push brought, since sessions commit to main directly. Neither reaches back into the Continued
+# history, which the convention's check would fail.
+#
+# Windows, because that is where every one of these scripts has passed, and asset-paths.ps1 finds a
+# file whose name differs only in case there, as the game on Windows does.
+#
+# Advisory: main has no branch protection, so a red check blocks nothing.
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # the commit check walks a range
+          submodules: true
+
+      - name: Check the commit messages
+        shell: pwsh
+        env:
+          RANGE: >-
+            ${{ github.event_name == 'pull_request'
+                && format('{0}..{1}', github.event.pull_request.base.sha, github.event.pull_request.head.sha)
+                || format('{0}..{1}', github.event.before, github.event.after) }}
+        run: pwsh -NoProfile -File vendor/grado-factorio-tools/scripts/commit-check.ps1 -Range $env:RANGE
+
+      # Off Windows git runs a hook only if its mode is 100755, and skips it silently otherwise.
+      - name: Hold every .githooks/ file to mode 100755
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: |
+          $bad = @(git ls-files -s .githooks | Where-Object { $_ -notmatch '^100755 ' })
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $bad | ForEach-Object { Write-Output "::error::not mode 100755: $_" }
+          exit [int] [bool] $bad.Count
+
+      - name: tests/asset-paths.ps1
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/tests/asset-paths.ps1
+
+      - name: tests/strict-lists.ps1
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/tests/strict-lists.ps1
+
+      - name: tests/script-help.ps1
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/tests/script-help.ps1
