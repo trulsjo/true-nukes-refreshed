@@ -1,0 +1,13 @@
+{
+  "env": {
+    "FACTORIO_EXE": "D:\\factorio-2.1\\bin\\x64\\factorio.exe"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(gh api --method POST repos/trulsjo/grado-factorio-modpack/issues/*/dependencies/blocked_by -F issue_id=*)",
+      "Bash(gh api --method POST repos/trulsjo/grado-factorio-tools/issues/*/dependencies/blocked_by -F issue_id=*)",
+      "Bash(gh api --method POST repos/trulsjo/realistic-fusion-refreshed/issues/*/dependencies/blocked_by -F issue_id=*)",
+      "Bash(gh api --method POST repos/trulsjo/true-nukes-refreshed/issues/*/dependencies/blocked_by -F issue_id=*)"
+    ]
+  }
+}
