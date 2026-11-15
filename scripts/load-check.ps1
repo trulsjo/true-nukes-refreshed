@@ -10,8 +10,8 @@
     scripts/ reads .Count off a command result not wrapped in @(), or .Id or .Name off any
     command result. Then tests/script-help.ps1, which stops it if PowerShell cannot read a
     script's comment-based help, or a script does not parse. Then tests/harness-lib.ps1, which
-    stops it if the shared library's functions do not build, list and remove a harness for the
-    three mods as port-probe.ps1 and freeze-time.ps1 use them.
+    stops it if three of the shared library's functions, New-LoadHarness, Write-HarnessModList
+    and Remove-LoadHarness, do not build, list and remove a harness for the three mods.
 
 .PARAMETER FactorioExe
     Path to factorio.exe. Defaults to the harness's own lookup: $env:FACTORIO_EXE, then Steam.
