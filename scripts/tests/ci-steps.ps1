@@ -8,11 +8,19 @@
     needs a game install. On PR #79 the count of those tests stood in four files, and one was
     missed until review; this holds the rule itself.
 
-    The tests load-check.ps1 runs are the string constants in it of the form tests/<name>.ps1,
-    read from the parser, so its help text does not count. A test is in CI where a line of the
-    workflow that is not a comment names scripts/tests/<name>.ps1. It fails on a test in neither,
-    on a listed exception CI runs anyway or load-check.ps1 no longer runs, and when it finds no
-    test in load-check.ps1 at all, which would mean it could not read it. It runs no game.
+    The tests load-check.ps1 runs are the strings in it, constant or expandable, that name
+    tests/<name>.ps1 or tests\<name>.ps1, read from the parser, so its help text does not count:
+    Join-Path $PSScriptRoot 'tests/<name>.ps1', "$PSScriptRoot/tests/<name>.ps1" and
+    pwsh -File scripts/tests/<name>.ps1 are each seen. A path joined from parts, as
+    Join-Path $PSScriptRoot 'tests' '<name>.ps1', is not; load-check.ps1 calls each test the first
+    way. A string naming a test that nothing runs counts as run.
+
+    A test is in CI where a line of the workflow, with its # comment cut, holds
+    -File scripts/tests/<name>.ps1. A step that never runs, as one whose if: is false, still counts.
+
+    It fails on a test in neither, on a listed exception CI runs anyway or load-check.ps1 no longer
+    runs, on an input file that does not exist, and when it finds no test in load-check.ps1 at all,
+    which would mean load-check.ps1 calls its tests some other way. It runs no game.
 
 .PARAMETER LoadCheck
     The load check to read. Defaults to scripts/load-check.ps1.
@@ -39,15 +47,24 @@ $except = @{
     'harness-lib.ps1' = "reads a game install's data folder"
 }
 
+foreach ($file in $LoadCheck, $Workflow) {
+    if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { Write-Host "ci-steps: CHECK FAILED: no file $file"; exit 1 }
+}
+
 $tokens = $null
 $errors = $null
 $ast = [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path -LiteralPath $LoadCheck).Path, [ref] $tokens, [ref] $errors)
 if ($errors) { Write-Host "ci-steps: CHECK FAILED: $LoadCheck does not parse: $($errors[0].Message)"; exit 1 }
-$run = @($ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.StringConstantExpressionAst] }, $true) |
-        Where-Object { $_.Value -match '^tests/([\w.-]+\.ps1)$' } | ForEach-Object { $Matches[1] } | Sort-Object -Unique)
+$strings = $ast.FindAll({
+        param($n)
+        $n -is [System.Management.Automation.Language.StringConstantExpressionAst] -or
+        $n -is [System.Management.Automation.Language.ExpandableStringExpressionAst]
+    }, $true)
+$run = @($strings | ForEach-Object { [regex]::Matches($_.Value, '(?<![\w.-])tests[/\\]([\w.-]+\.ps1)') } |
+        ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
 
-$inCi = @(Get-Content -LiteralPath $Workflow | Where-Object { $_.TrimStart() -notlike '#*' } |
-        ForEach-Object { [regex]::Matches($_, 'scripts/tests/([\w.-]+\.ps1)') | ForEach-Object { $_.Groups[1].Value } } |
+$inCi = @(Get-Content -LiteralPath $Workflow | ForEach-Object { $_ -replace '(^|\s)#.*$', '' } |
+        ForEach-Object { [regex]::Matches($_, '(?i)-File\s+(?:\./)?scripts/tests/([\w.-]+\.ps1)') | ForEach-Object { $_.Groups[1].Value } } |
         Sort-Object -Unique)
 
 $broken = @(
@@ -66,5 +83,6 @@ if ($broken.Count) {
     exit 1
 }
 $ran = @($run | Where-Object { $_ -in $inCi })
-Write-Host "ci-steps: CHECK PASSED: $($ran.Count) of load-check.ps1's $($run.Count) tests run in check.yml; the rest are listed: $(($except.Keys | Sort-Object) -join ', ')"
+$listed = if ($except.Count) { "; the rest are listed: $(($except.Keys | Sort-Object) -join ', ')" } else { '' }
+Write-Host "ci-steps: CHECK PASSED: $($ran.Count) of load-check.ps1's $($run.Count) tests run in check.yml$listed"
 exit 0
