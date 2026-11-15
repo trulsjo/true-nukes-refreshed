@@ -1,7 +1,8 @@
 # The checks that need no game (#69, from trulsjo/grado-factorio-tools#320): the commit messages,
-# the mode of each .githooks/ file, and the three tests scripts/load-check.ps1 runs before it
-# starts Factorio. The load check itself and the port probes need the game, so they run only where
-# a person starts them (docs/agents/checks.md).
+# the mode of each .githooks/ file, and three of the four tests scripts/load-check.ps1 runs before
+# it starts Factorio. The fourth, scripts/tests/harness-lib.ps1, reads an install's data folder.
+# It, the load check itself and the port probes need the game, so they run only where a person
+# starts them (docs/agents/checks.md).
 #
 # The range is realistic-fusion-refreshed's gates.yml's: a pull request's base.sha..head.sha, and
 # on a push to main the commits that push brought, since sessions commit to main directly. Neither
