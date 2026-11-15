@@ -7,6 +7,10 @@ setup every run needs: the pinned `FACTORIO_EXE`, the submodule, the commit hook
 the commit check, the mode of each `.githooks/` file, and three of the four tests `load-check.ps1`
 runs before the game. A test added to `load-check.ps1` gets a step there too, unless it needs a
 game install, as `scripts/tests/harness-lib.ps1` does for the install's data folder.
+`scripts/tests/ci-steps.ps1`, a step itself, holds that: it fails on a test `load-check.ps1` runs
+that is neither a step nor on its own list of tests CI cannot run, each with its reason, and on a
+listed one CI runs anyway or `load-check.ps1` no longer runs. A test that needs an install goes on
+that list.
 
 ## `scripts/load-check.ps1`
 
