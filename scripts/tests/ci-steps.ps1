@@ -12,11 +12,15 @@
     tests/<name>.ps1 or tests\<name>.ps1, read from the parser, so its help text does not count:
     Join-Path $PSScriptRoot 'tests/<name>.ps1', "$PSScriptRoot/tests/<name>.ps1" and
     pwsh -File scripts/tests/<name>.ps1 are each seen. A path joined from parts, as
-    Join-Path $PSScriptRoot 'tests' '<name>.ps1', is not; load-check.ps1 calls each test the first
-    way. A string naming a test that nothing runs counts as run.
+    Join-Path $PSScriptRoot 'tests' '<name>.ps1', or with its name held in a variable, as
+    "tests/$t.ps1", is not; load-check.ps1 calls each test the first way. A string naming a test
+    that nothing runs counts as run.
 
     A test is in CI where a line of the workflow, with its # comment cut, holds
-    -File scripts/tests/<name>.ps1. A step that never runs, as one whose if: is false, still counts.
+    -File scripts/tests/<name>.ps1. A line that holds it without running it, as a step's name: or a
+    run: that only echoes it, counts too, and so does a step that never runs, as one whose if: is
+    false. A step that runs the test written another way, as & ./scripts/tests/<name>.ps1, does not
+    count.
 
     It fails on a test in neither, on a listed exception CI runs anyway or load-check.ps1 no longer
     runs, on an input file that does not exist, and when it finds no test in load-check.ps1 at all,
@@ -70,7 +74,7 @@ $inCi = @(Get-Content -LiteralPath $Workflow | ForEach-Object { $_ -replace '(^|
 $broken = @(
     if (-not $run.Count) { "no tests/<name>.ps1 found in $LoadCheck" }
     foreach ($t in $run) {
-        if ($t -notin $inCi -and -not $except.ContainsKey($t)) { "$t runs in load-check.ps1 and is no step of check.yml" }
+        if ($t -notin $inCi -and -not $except.ContainsKey($t)) { "$t runs in load-check.ps1 and no line of check.yml holds -File scripts/tests/$t" }
     }
     foreach ($t in $except.Keys) {
         if ($t -in $inCi) { "$t is listed as one CI cannot run ($($except[$t])), but check.yml runs it" }
