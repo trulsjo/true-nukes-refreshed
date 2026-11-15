@@ -5,20 +5,20 @@
 #
 # One form for each way .githooks/ and .github/workflows/check.yml run a tools script, the
 # -SelfTest of every tools script this repository runs or loads (grado-factorio-tools#318, ruling
-# 3), and each script of this repository's own that reaches into vendor/, but two:
+# 3), and each script of this repository's own that reaches into vendor/, but one:
 # - scripts/freeze-time.ps1 takes hours. Its reference names load-harness-lib.ps1, which a form
 #   runs, so the measurement does not list it, though nothing measures freeze-time.ps1 itself.
-# - The windowed probes of scripts/port-probe.ps1 must run alone (docs/agents/checks.md), so the
-#   probe form is the headless basic.
+# The windowed probes of scripts/port-probe.ps1 must run alone (docs/agents/checks.md), so its
+# form runs the headless basic.
 # Four forms start the game, and need FACTORIO_EXE set to the pinned 2.1.24 install (CLAUDE.md,
 # Checks).
 @{
     Forms = @(
-        # .githooks/commit-msg hands it the message file; check.yml runs it over the pull request's
-        # range, origin/main...HEAD, which reads nothing in a clone, so the range here is fixed.
+        # .githooks/commit-msg hands it the message file. check.yml runs it over the event's range,
+        # with -RequireCommits on a pull request; a clone has no event, so the range here is fixed.
         @{ Name = 'commit-check-selftest'; From = 'tools'; Script = 'commit-check.ps1'; Args = @('-SelfTest') }
         @{ Name = 'commit-check-hook'; From = 'tools'; Script = 'commit-check.ps1'; Args = @('{headmsg}') }
-        @{ Name = 'commit-check-range'; From = 'tools'; Script = 'commit-check.ps1'; Args = @('-Range', 'HEAD~20..HEAD') }
+        @{ Name = 'commit-check-range'; From = 'tools'; Script = 'commit-check.ps1'; Args = @('-Range', 'HEAD~20..HEAD', '-RequireCommits') }
         # scripts/load-check.ps1 and scripts/tests/recipe-category.ps1 run it. Starts the game.
         @{ Name = 'load-harness-selftest'; From = 'tools'; Script = 'load-harness.ps1'; Args = @('-SelfTest') }
         # load-harness-lib.ps1 has no -SelfTest. Run as a file it only defines its functions, so
