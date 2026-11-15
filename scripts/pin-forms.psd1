@@ -16,22 +16,30 @@
     Forms = @(
         # .githooks/commit-msg hands it the message file. check.yml runs it over the event's range,
         # with -RequireCommits on a pull request; a clone has no event, so the range here is fixed.
+        # It is never empty, so the range form shows only that -RequireCommits still binds; the
+        # -SelfTest checks that the flag fails an empty range.
         @{ Name = 'commit-check-selftest'; From = 'tools'; Script = 'commit-check.ps1'; Args = @('-SelfTest') }
         @{ Name = 'commit-check-hook'; From = 'tools'; Script = 'commit-check.ps1'; Args = @('{headmsg}') }
         @{ Name = 'commit-check-range'; From = 'tools'; Script = 'commit-check.ps1'; Args = @('-Range', 'HEAD~20..HEAD', '-RequireCommits') }
         # scripts/load-check.ps1 and scripts/tests/recipe-category.ps1 run it. Starts the game.
         @{ Name = 'load-harness-selftest'; From = 'tools'; Script = 'load-harness.ps1'; Args = @('-SelfTest') }
-        # load-harness-lib.ps1 has no -SelfTest. Run as a file it only defines its functions, so
-        # this form proves no more than that it parses; the forms below that start the game run it.
+        # load-harness-lib.ps1 has no -SelfTest. Run as a file it only defines its functions and
+        # exits 0 with a broken body or a dot-source gone, so this form proves no more than that it
+        # parses; harness-lib below is what checks its functions.
         @{ Name = 'load-harness-lib'; From = 'tools'; Script = 'load-harness-lib.ps1'; Args = @() }
         # load-harness-lib.ps1 dot-sources both.
         @{ Name = 'mod-info-selftest'; From = 'tools'; Script = 'mod-info.ps1'; Args = @('-SelfTest') }
         @{ Name = 'self-test-halves-selftest'; From = 'tools'; Script = 'self-test-halves.ps1'; Args = @('-SelfTest') }
-        # The script that reads this file.
+        # The script that reads this file. Its -SelfTest also covers breaking-lib.ps1, which it
+        # dot-sources and which has none.
         @{ Name = 'pin-measure-selftest'; From = 'tools'; Script = 'pin-measure.ps1'; Args = @('-SelfTest') }
-        # load-check.ps1 loads the three mods through load-harness.ps1, after
-        # scripts/tests/asset-paths.ps1. Its -Check, scripts/tests/shotgun-items.ps1, dot-sources
-        # load-harness-lib.ps1, so one form stands for both. Starts the game.
+        # load-harness-lib.ps1's functions, as port-probe.ps1 and freeze-time.ps1 call them, each
+        # checked for what it leaves. Runs no game, but reads the install's data folder.
+        @{ Name = 'harness-lib'; From = 'sibling'; Script = 'scripts/tests/harness-lib.ps1'; Args = @() }
+        # load-check.ps1 loads the three mods through load-harness.ps1, after its three game-free
+        # tests: asset-paths.ps1, strict-lists.ps1 and script-help.ps1. Its -Check,
+        # scripts/tests/shotgun-items.ps1, dot-sources load-harness-lib.ps1, so one form stands for
+        # both. Starts the game.
         @{ Name = 'load-check-shotgun-items'; From = 'sibling'; Script = 'scripts/load-check.ps1'; Args = @('-Check', 'scripts/tests/shotgun-items.ps1') }
         # Warheads alone under the recipe_category fixture, through load-harness.ps1. Starts the
         # game.
