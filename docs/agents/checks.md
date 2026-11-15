@@ -3,10 +3,11 @@
 The scripts that check the mods, and the tests that check the scripts. `CLAUDE.md` *Checks* has the
 setup every run needs: the pinned `FACTORIO_EXE`, the submodule, the commit hook and `-NoProfile`.
 
-**A change to a check, or to how one is called, shows a run that goes red with the change and
-green with it reverted, on the same input.** A run that fails the same way without the change
-shows nothing: PR #79's first evidence, `load-check.ps1` with a `-FactorioExe` that names no file,
-exits 1 on `main` too.
+**A change to what a check fails on, or to whether it runs, shows a run that goes red with the
+change and green with it reverted, on the same input, or the other way round for a change that
+stops a false failure.** A run that fails the same way without the change shows nothing: PR #79's
+first evidence, `load-check.ps1` with a `-FactorioExe` that names no file, exits 1 without the new
+call too.
 
 `.github/workflows/check.yml` runs what needs no game on every pull request and push to `main`:
 the commit check, the mode of each `.githooks/` file, and three of the four tests `load-check.ps1`
