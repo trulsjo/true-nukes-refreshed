@@ -10,8 +10,9 @@
 #   runs, so the measurement does not list it, though nothing measures freeze-time.ps1 itself.
 # The windowed probes of scripts/port-probe.ps1 must run alone (docs/agents/checks.md), so its
 # form runs the headless basic.
-# Four forms start the game, and need FACTORIO_EXE set to the pinned 2.1.24 install (CLAUDE.md,
-# Checks).
+# Four forms start the game. They and harness-lib, which reads the install's data folder, need
+# FACTORIO_EXE set to the pinned 2.1.24 install (CLAUDE.md, Checks): unset, the harness falls back
+# to the Steam path without a word.
 @{
     Forms = @(
         # .githooks/commit-msg hands it the message file. check.yml runs it over the event's range,
@@ -25,7 +26,7 @@
         @{ Name = 'load-harness-selftest'; From = 'tools'; Script = 'load-harness.ps1'; Args = @('-SelfTest') }
         # load-harness-lib.ps1 has no -SelfTest. Run as a file it only defines its functions and
         # exits 0 with a broken body or a dot-source gone, so this form proves no more than that it
-        # parses; harness-lib below is what checks its functions.
+        # parses; harness-lib below checks three of its functions, and the game forms run more.
         @{ Name = 'load-harness-lib'; From = 'tools'; Script = 'load-harness-lib.ps1'; Args = @() }
         # load-harness-lib.ps1 dot-sources both.
         @{ Name = 'mod-info-selftest'; From = 'tools'; Script = 'mod-info.ps1'; Args = @('-SelfTest') }
@@ -33,8 +34,9 @@
         # The script that reads this file. Its -SelfTest also covers breaking-lib.ps1, which it
         # dot-sources and which has none.
         @{ Name = 'pin-measure-selftest'; From = 'tools'; Script = 'pin-measure.ps1'; Args = @('-SelfTest') }
-        # load-harness-lib.ps1's functions, as port-probe.ps1 and freeze-time.ps1 call them, each
-        # checked for what it leaves. Runs no game, but reads the install's data folder.
+        # New-LoadHarness, Write-HarnessModList without -Disabled and Remove-LoadHarness, each
+        # checked for what it leaves. Invoke-Factorio and Get-FactorioErrorText run only in the
+        # game forms, and no form passes -Disabled, which freeze-time.ps1 does. Runs no game.
         @{ Name = 'harness-lib'; From = 'sibling'; Script = 'scripts/tests/harness-lib.ps1'; Args = @() }
         # load-check.ps1 loads the three mods through load-harness.ps1, after its three game-free
         # tests: asset-paths.ps1, strict-lists.ps1 and script-help.ps1. Its -Check,
