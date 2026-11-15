@@ -4,8 +4,9 @@ The scripts that check the mods, and the tests that check the scripts. `CLAUDE.m
 setup every run needs: the pinned `FACTORIO_EXE`, the submodule, the commit hook and `-NoProfile`.
 
 `.github/workflows/check.yml` runs what needs no game on every pull request and push to `main`:
-the commit check, the mode of each `.githooks/` file, and the three tests `load-check.ps1` runs
-before the game. A test added to `load-check.ps1` gets a step there too.
+the commit check, the mode of each `.githooks/` file, and three of the four tests `load-check.ps1`
+runs before the game. A test added to `load-check.ps1` gets a step there too, unless it needs a
+game install, as `scripts/tests/harness-lib.ps1` does for the install's data folder.
 
 ## `scripts/load-check.ps1`
 
@@ -33,8 +34,8 @@ prototype validates and every `on_init` runs. It runs no ticks.
   keyword, such as one opening with `.Count`, makes PowerShell drop the whole block silently.
   Help written as `#` line comments is not checked; the scripts here use `<# #>` blocks. Then
   `scripts/tests/harness-lib.ps1`, which builds, lists and removes a harness for the three mods with
-  the shared library's functions, as `port-probe.ps1` and `freeze-time.ps1` call them, and fails
-  on what each leaves wrong (see its own entry below).
+  three of the shared library's functions, `New-LoadHarness`, `Write-HarnessModList` and
+  `Remove-LoadHarness`, and fails on what each leaves wrong (see its own entry below).
 - `-Check scripts/tests/shotgun-items.ps1` also requires the six generated shotgun items.
 - `scripts/tests/recipe-category.ps1` loads Warheads alone under a mod that sets `recipe_category`.
 - `scripts/tests/harness-lib.ps1` builds, lists and removes a harness for the three mods with the
