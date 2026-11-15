@@ -31,12 +31,17 @@ prototype validates and every `on_init` runs. It runs no ticks.
   help a block is: it blanks each block out, reparses, and fails a block whose removal changes no
   help the parser gives the script or a function. A help line that starts with a dot but is no help
   keyword, such as one opening with `.Count`, makes PowerShell drop the whole block silently.
-  Help written as `#` line comments is not checked; the scripts here use `<# #>` blocks.
+  Help written as `#` line comments is not checked; the scripts here use `<# #>` blocks. Then
+  `scripts/tests/harness-lib.ps1`, which builds, lists and removes a harness for the three mods with
+  the shared library's functions, as `port-probe.ps1` and `freeze-time.ps1` call them, and fails
+  on what each leaves wrong (see its own entry below).
 - `-Check scripts/tests/shotgun-items.ps1` also requires the six generated shotgun items.
 - `scripts/tests/recipe-category.ps1` loads Warheads alone under a mod that sets `recipe_category`.
 - `scripts/tests/harness-lib.ps1` builds, lists and removes a harness for the three mods with the
-  shared library's functions, and runs no game. It exists for `scripts/pin-forms.psd1`, where it
-  checks what running `load-harness-lib.ps1` as a file cannot (#78).
+  shared library's functions, and runs no game, but reads the install's data folder for the
+  bundled mods, so it needs `FACTORIO_EXE`. It was written for `scripts/pin-forms.psd1`, where it
+  checks what running `load-harness-lib.ps1` as a file cannot (#78), and `load-check.ps1` runs it
+  before the game.
 
 **Data-stage stubs.** Model a stub on that mod, `scripts/tests/warheads-user/`, but not on its
 dependency on Warheads, and have its check assert that the stub's input reached the generated
