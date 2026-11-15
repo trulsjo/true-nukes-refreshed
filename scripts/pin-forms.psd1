@@ -38,8 +38,9 @@
         # checked for what it leaves. Invoke-Factorio and Get-FactorioErrorText run only in the
         # game forms, and no form passes -Disabled, which freeze-time.ps1 does. Runs no game.
         @{ Name = 'harness-lib'; From = 'sibling'; Script = 'scripts/tests/harness-lib.ps1'; Args = @() }
-        # load-check.ps1 loads the three mods through load-harness.ps1, after its three game-free
-        # tests: asset-paths.ps1, strict-lists.ps1 and script-help.ps1. Its -Check,
+        # load-check.ps1 loads the three mods through load-harness.ps1, after four tests that run
+        # no game: asset-paths.ps1, strict-lists.ps1, script-help.ps1 and harness-lib.ps1, which
+        # keeps its own form above so the table shows it apart. Its -Check,
         # scripts/tests/shotgun-items.ps1, dot-sources load-harness-lib.ps1, so one form stands for
         # both. Starts the game.
         @{ Name = 'load-check-shotgun-items'; From = 'sibling'; Script = 'scripts/load-check.ps1'; Args = @('-Check', 'scripts/tests/shotgun-items.ps1') }
