@@ -35,8 +35,10 @@
     it ends, and a removal that fails only warns, naming the directory. A game still holding files
     in its harness, as one left running by a stopped session can, keeps that directory, with its
     junctions removed and a warning ("load-harness: could not remove temp directory ...") naming
-    it. A session stopped while its harness is being built removes it too, unless the harness has
-    no link to this session's timer copy yet; then it only warns where a harness may be left.
+    it. A session stopped while its harness is being built removes it too, found among the
+    harnesses new since the session began by its tn-freeze-timer junction to this session's timer
+    copy. Any other new harness, with no such link yet or a link to another copy, may be another
+    run's: it is left, and a warning names where it may be.
     scripts/tests/freeze-time-cleanup.ps1 checks this (#63).
 
 .PARAMETER Mode
@@ -70,7 +72,8 @@
     pwsh -File scripts/freeze-time.ps1 -Logs "$env:TEMP/tn-freeze-time-logs/*-headless-*.log"
 #>
 
-#Requires -Version 7
+# 7.2 for LinkTarget (.NET 6), which Invoke-Session's finally reads under strict mode.
+#Requires -Version 7.2
 [CmdletBinding()]
 param(
     [ValidateSet('headless', 'windowed')] [string] $Mode = 'headless',
@@ -149,18 +152,18 @@ function Invoke-Session([string] $Version, [string[]] $Arguments, [switch] $Crea
         if (-not $harness -and $null -ne $harnessesBefore) {
             # Stopped while New-LoadHarness was building the harness, so it never returned it. A new
             # harness is this session's if it links this session's own timer copy, whose path no
-            # other run shares. One with no timer link yet may belong to another run still building
-            # its own, so it is named, not removed.
+            # other run shares. Any other new one, with no timer link yet or a link to another copy,
+            # may belong to another run, so it is named, not removed.
             $ownLink = (Join-Path $timerCopy 'tn-freeze-timer').TrimEnd('\')
             $new = @(Get-ChildItem ([IO.Path]::GetTempPath()) -Directory -Filter 'load-harness-*' -ErrorAction SilentlyContinue |
                 Where-Object Name -notin $harnessesBefore)
             foreach ($dir in $new) {
                 $link = Get-Item -LiteralPath (Join-Path $dir.FullName 'mods\tn-freeze-timer') -Force -ErrorAction SilentlyContinue
-                if (-not $link) {
-                    Write-Warning -WarningAction Continue "a load harness may be left at $($dir.FullName); unlink the junctions in its mods folder with rmdir before deleting it"
-                }
-                elseif ($link.LinkType -eq 'Junction' -and "$($link.LinkTarget)".TrimEnd('\') -eq $ownLink) {
+                if ($link -and $link.LinkType -eq 'Junction' -and "$($link.LinkTarget)".TrimEnd('\') -eq $ownLink) {
                     $harness = [pscustomobject]@{ Temp = $dir.FullName; ModDirectory = Join-Path $dir.FullName 'mods' }
+                }
+                else {
+                    Write-Warning -WarningAction Continue "a load harness may be left at $($dir.FullName); unlink the junctions in its mods folder with rmdir before deleting it"
                 }
             }
         }
