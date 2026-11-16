@@ -9,9 +9,12 @@
 
     No case starts a game or needs a 2.0 install. The script checks only that -Factorio20Exe and
     FACTORIO_EXE name files, so -Factorio20Exe is the 2.1 install, and -ContinuedMods a folder of
-    stand-in zips for the two Continued mods. With no -Save, the script's first session creates the
-    save on "2.0", which writes the mod list with -Disabled. Each case compares the scratch folder
-    before and after one run:
+    stand-ins for the two Continued zips. Each stand-in is a directory named as its zip, holding its
+    info.json and a sentinel file, which the shared harness junctions as it would the repository's
+    mods in a 2.1 session. With no -Save, the script's first session creates the save on "2.0",
+    which writes the mod list with -Disabled. Each case compares the scratch folder before and after
+    one run, and checks that both sentinels are still there, so a cleanup that deletes through a
+    junction goes red:
       setup       a -Factorio20Exe with no data directory beside it: New-LoadHarness fails, the
                   run fails and reports it, and nothing is left.
       throws      a Get-CimInstance that throws, after the harness is built: the session's own error
@@ -24,13 +27,16 @@
       buildown    stopped while New-LoadHarness builds, after the session's own tn-freeze-timer
                   junction: nothing is left.
       buildother  stopped before that junction exists (the stand-in holds it back): the harness is
-                  left and a warning names it; the timer copy is removed.
+                  left and a warning names it; the timer copy is removed. Before it pauses, the
+                  stand-in also makes a decoy harness whose tn-freeze-timer junction points at
+                  another copy, as another run's would: it is left as it was, and a warning names it.
 
     Stand-ins and stops run the script in a [powershell] instance, whose Stop() is the pipeline
     stop Ctrl+C causes. A stand-in that pauses writes a marker file first, and the test stops the
     run only once it sees it. A case that never reaches its pause fails. Any leftover is removed by
-    unlinking each junction before deleting the directory, and the repository's mod folders are
-    checked unchanged at the end.
+    unlinking each junction before deleting the directory. The repository's mod folders are checked
+    unchanged at the end, through git, which must read the repository; no case junctions them, so
+    that check is a guard, and the sentinels are what can go red.
 
     Needs FACTORIO_EXE set to the pinned 2.1.24 install: New-LoadHarness reads its data folder.
     Takes under a minute.
@@ -61,9 +67,17 @@ function Check([bool] $Ok, [string] $What) {
     if ($Ok) { Write-Host "ok: $What" } else { Write-Host "FAILED: $What"; $script:failed++ }
 }
 
-# The mods' source, which a delete through a junction would reach.
+# The repository's mods, which the script's 2.1 sessions junction. No case reaches a 2.1 session,
+# so this is a guard, not a check that can go red here; the Continued stand-ins below are.
 $modDirs = @('true-nukes-refreshed', 'warheads-refreshed', 'true-nukes-graphics-refreshed')
-function Get-ModState { git -C $repo status --porcelain --ignored -- @modDirs; git -C $repo ls-files -s -- @modDirs | Measure-Object | ForEach-Object Count }
+function Get-ModState {
+    $status = git -C $repo status --porcelain --ignored -- @modDirs
+    if ($LASTEXITCODE) { throw "git status failed in $repo (exit $LASTEXITCODE), so the mods' state cannot be read" }
+    $files = @(git -C $repo ls-files -s -- @modDirs)
+    if ($LASTEXITCODE) { throw "git ls-files failed in $repo (exit $LASTEXITCODE), so the mods' state cannot be read" }
+    if (-not $files.Count) { throw "git ls-files lists no file under $($modDirs -join ', ') in $repo" }
+    @($status) + "$($files.Count) tracked files"
+}
 $modsBefore = (Get-ModState) -join "`n"
 
 # The test's own temp folder; TMP and TEMP point here while the cases run.
@@ -73,15 +87,25 @@ New-Item -ItemType Directory $scratch | Out-Null
 $marks = Join-Path $scratch 'marks'
 New-Item -ItemType Directory $marks | Out-Null
 
-# Stand-ins for the two Continued zips: a mod each, with nothing but its info.json.
+# Stand-ins for the two Continued zips: directories named as the zips, each holding its info.json
+# and a sentinel file. The shared harness reads a directory with an info.json as a mod whatever its
+# name, and junctions it into the harness, so every harness a case makes links into them, as a 2.1
+# session's links into the repository's mods. A cleanup that deletes through a junction deletes a
+# sentinel, which Test-Sources finds after each case.
 $continued = Join-Path $marks 'continued'
+$sentinels = @()
 foreach ($m in @(@{ Name = 'True-Nukes_Continued'; Version = '0.3.36' }, @{ Name = 'Warheads_Continued'; Version = '0.0.21' })) {
-    $src = Join-Path $marks "src\$($m.Name)_$($m.Version)"
+    $src = Join-Path $continued "$($m.Name)_$($m.Version).zip"
     New-Item -ItemType Directory -Force $src | Out-Null
     @{ name = $m.Name; version = $m.Version; title = $m.Name; author = 'test'; factorio_version = '2.0' } |
         ConvertTo-Json | Set-Content (Join-Path $src 'info.json')
-    New-Item -ItemType Directory -Force $continued | Out-Null
-    Compress-Archive -Path $src -DestinationPath (Join-Path $continued "$($m.Name)_$($m.Version).zip")
+    $sentinel = Join-Path $src 'sentinel.txt'
+    Set-Content $sentinel 'a cleanup that deletes through a junction deletes this'
+    $sentinels += $sentinel
+}
+function Test-Sources([string] $Case) {
+    $gone = @($sentinels | Where-Object { -not (Test-Path -LiteralPath $_) })
+    Check ($gone.Count -eq 0) "${Case}: the junctioned stand-in mods' files are all still there ($($gone -join ' '))"
 }
 
 function Get-TempDirs {
@@ -141,6 +165,7 @@ try {
         Check ([bool](@($text) -match 'Factorio data directory not found')) 'it reports the missing data directory'
         $new = @(Get-NewDirs $before)
         Check ($new.Count -eq 0) "nothing is left ($($new -join ' '))"
+        Test-Sources 'setup'
         $new | ForEach-Object { Remove-Leftover $_ }
     }
 
@@ -192,18 +217,29 @@ function Remove-Item {
                 foreach ($c in $copies) { Check ([bool]($warnings -match [regex]::Escape($c))) "a warning names $c" }
             }
         }
+        Test-Sources $case
         $new | ForEach-Object { Remove-Leftover $_ }
     }
 
     # Build stops: a New-Item that writes a marker and pauses at a chosen point of New-LoadHarness.
     # buildown pauses right after the session's own junction (tn-freeze-timer); buildother pauses
     # instead of making it, so whatever the junction order, the own junction never exists when it
-    # stops.
+    # stops. Before it pauses, buildother also makes a decoy harness, new since the session began,
+    # whose tn-freeze-timer junction points at another timer copy, as another run's would.
+    $decoy = 'load-harness-decoy0'
+    $foreign = Join-Path $marks 'foreign\tn-freeze-timer'
+    New-Item -ItemType Directory -Force $foreign | Out-Null
+    Set-Content (Join-Path $foreign 'sentinel.txt') 'another run''s timer copy'
     $pauseNewItem = @'
 function New-Item {
     [CmdletBinding()] param([string] $ItemType, [Parameter(Position = 0)] [string] $Path, [object] $Target, [switch] $Force)
     $own = $ItemType -eq 'Junction' -and (Split-Path $Path -Leaf) -eq 'tn-freeze-timer'
-    if ($own -and '__MODE__' -eq 'buildother') { Set-Content '__MARK__' 'paused'; Start-Sleep -Seconds 120; return }
+    if ($own -and '__MODE__' -eq 'buildother') {
+        $mods = Join-Path ([IO.Path]::GetTempPath()) '__DECOY__\mods'
+        Microsoft.PowerShell.Management\New-Item -ItemType Directory -Force $mods | Out-Null
+        Microsoft.PowerShell.Management\New-Item -ItemType Junction -Path (Join-Path $mods 'tn-freeze-timer') -Target '__FOREIGN__' | Out-Null
+        Set-Content '__MARK__' 'paused'; Start-Sleep -Seconds 120; return
+    }
     $r = Microsoft.PowerShell.Management\New-Item @PSBoundParameters
     if ($own -and '__MODE__' -eq 'buildown') { Set-Content '__MARK__' 'paused'; Start-Sleep -Seconds 120 }
     $r
@@ -214,7 +250,8 @@ function New-Item {
         Write-Host "--- ${case}: stopped while the harness is built, $(if ($case -eq 'buildown') { 'after' } else { 'before' }) the session's own junction"
         $mark = Join-Path $marks "$case.paused"
         $before = Get-TempDirs
-        $ps = New-ScriptInstance ($pauseNewItem -replace '__MODE__', $case -replace '__MARK__', $mark) (Get-ScriptArgs $env:FACTORIO_EXE)
+        $prelude = $pauseNewItem -replace '__MODE__', $case -replace '__MARK__', $mark -replace '__DECOY__', $decoy -replace '__FOREIGN__', $foreign
+        $ps = New-ScriptInstance $prelude (Get-ScriptArgs $env:FACTORIO_EXE)
         $async = $ps.BeginInvoke()
         $paused = Wait-Until { Test-Path $mark } 60
         $ps.Stop()
@@ -229,10 +266,14 @@ function New-Item {
         if ($case -eq 'buildown') {
             Check ($new.Count -eq 0) "nothing is left ($($new -join ' '))"
         } else {
-            $harnesses = @($new -like 'load-harness-*')
+            $harnesses = @($new -like 'load-harness-*' | Where-Object { $_ -ne $decoy })
             Check ($harnesses.Count -eq 1) "the harness it can't prove its own is left ($($harnesses -join ' '))"
             Check ($harnesses.Count -eq 1 -and [bool]($warnings -match [regex]::Escape($harnesses[0]))) 'a warning names it'
+            $link = Get-Item -LiteralPath (Join-Path $scratch "$decoy\mods\tn-freeze-timer") -Force -ErrorAction SilentlyContinue
+            Check ($link -and $link.LinkType -eq 'Junction' -and (Test-Path (Join-Path $foreign 'sentinel.txt'))) 'the decoy harness linked to another copy is left as it was'
+            Check ([bool]($warnings -match [regex]::Escape($decoy))) 'a warning names the decoy'
         }
+        Test-Sources $case
         $new | ForEach-Object { Remove-Leftover $_ }
     }
 }
