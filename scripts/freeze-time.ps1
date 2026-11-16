@@ -31,6 +31,14 @@
     Every run is isolated by the shared load harness: the player's own mods, saves and settings are
     neither read nor written. The 2.0 mods are copied from -ContinuedMods, never written.
 
+    Every session removes its timer-mod copy (tnf-*) and its load harness (load-harness-*) however
+    it ends, and a removal that fails only warns, naming the directory. A game still holding files
+    in its harness, as one left running by a stopped session can, keeps that directory, with its
+    junctions removed and a warning ("load-harness: could not remove temp directory ...") naming
+    it. A session stopped while its harness is being built removes it too, unless the harness has
+    no link to this session's timer copy yet; then it only warns where a harness may be left.
+    scripts/tests/freeze-time-cleanup.ps1 checks this (#63).
+
 .PARAMETER Mode
     headless (--benchmark) or windowed (--benchmark-graphics, which opens a window with sound).
 
@@ -88,10 +96,9 @@ if (-not $Logs) {
     New-Item -ItemType Directory -Force $LogDirectory | Out-Null
 }
 
-# The timer mod, with the factorio_version of the game it runs on.
-function New-Timer([string] $Version) {
-    $dir = Join-Path ([IO.Path]::GetTempPath()) ('tnf-' + [guid]::NewGuid().ToString('N').Substring(0, 6))
-    $mod = Join-Path $dir 'tn-freeze-timer'
+# The timer mod in $Dir, with the factorio_version of the game it runs on.
+function New-Timer([string] $Version, [string] $Dir) {
+    $mod = Join-Path $Dir 'tn-freeze-timer'
     New-Item -ItemType Directory -Force $mod | Out-Null
     Copy-Item (Join-Path $PSScriptRoot 'freeze-timer/control.lua') $mod
     @{ name = 'tn-freeze-timer'; version = '0.0.1'; title = 'True Nukes freeze timer'; author = 'true-nukes-refreshed'
@@ -102,14 +109,23 @@ function New-Timer([string] $Version) {
 }
 
 function Invoke-Session([string] $Version, [string[]] $Arguments, [switch] $Create, [string] $Tag) {
-    $timer = New-Timer $Version
-    $mods = if ($Version -eq '2.0') {
-        @('True-Nukes_Continued_0.3.36.zip', 'Warheads_Continued_0.0.21.zip') | ForEach-Object { Join-Path $ContinuedMods $_ }
-    } else {
-        @('true-nukes-refreshed', 'warheads-refreshed') | ForEach-Object { Join-Path $root $_ }
-    }
-    $harness = New-LoadHarness -Mods (@($mods) + $timer) -FactorioExe $exe[$Version]
+    $timerCopy = Join-Path ([IO.Path]::GetTempPath()) ('tnf-' + [guid]::NewGuid().ToString('N').Substring(0, 6))
+    $harness = $null
+    $harnessesBefore = $null
+    # Everything that makes a temp directory is inside the try, so the finally removes it whatever
+    # fails, as in port-probe.ps1 (#61, #63).
     try {
+        $timer = New-Timer $Version $timerCopy
+        $mods = if ($Version -eq '2.0') {
+            @('True-Nukes_Continued_0.3.36.zip', 'Warheads_Continued_0.0.21.zip') | ForEach-Object { Join-Path $ContinuedMods $_ }
+        } else {
+            @('true-nukes-refreshed', 'warheads-refreshed') | ForEach-Object { Join-Path $root $_ }
+        }
+        # Recorded so that finally can find this session's harness if it is stopped while it is
+        # built. ForEach-Object rather than .Name, which strict mode refuses on an empty list.
+        $harnessesBefore = @(Get-ChildItem ([IO.Path]::GetTempPath()) -Directory -Filter 'load-harness-*' -ErrorAction SilentlyContinue |
+            ForEach-Object Name)
+        $harness = New-LoadHarness -Mods (@($mods) + $timer) -FactorioExe $exe[$Version]
         # The save is base only: its mods are added when each session loads it.
         $disabled = if ($Create) { @($harness.Mods.Name) } else { @() }
         Write-HarnessModList -Harness $harness -Disabled $disabled
@@ -127,8 +143,37 @@ function Invoke-Session([string] $Version, [string[]] $Arguments, [switch] $Crea
         }
     }
     finally {
-        Remove-LoadHarness -Harness $harness
-        Remove-Item (Split-Path $timer -Parent) -Recurse -Force
+        # Each removal only warns if it fails, so it never skips the other or replaces the error
+        # that ended the session. -WarningAction Continue, because a caller's
+        # $WarningPreference = 'Stop' would otherwise make the warning throw.
+        if (-not $harness -and $null -ne $harnessesBefore) {
+            # Stopped while New-LoadHarness was building the harness, so it never returned it. A new
+            # harness is this session's if it links this session's own timer copy, whose path no
+            # other run shares. One with no timer link yet may belong to another run still building
+            # its own, so it is named, not removed.
+            $ownLink = (Join-Path $timerCopy 'tn-freeze-timer').TrimEnd('\')
+            $new = @(Get-ChildItem ([IO.Path]::GetTempPath()) -Directory -Filter 'load-harness-*' -ErrorAction SilentlyContinue |
+                Where-Object Name -notin $harnessesBefore)
+            foreach ($dir in $new) {
+                $link = Get-Item -LiteralPath (Join-Path $dir.FullName 'mods\tn-freeze-timer') -Force -ErrorAction SilentlyContinue
+                if (-not $link) {
+                    Write-Warning -WarningAction Continue "a load harness may be left at $($dir.FullName); unlink the junctions in its mods folder with rmdir before deleting it"
+                }
+                elseif ($link.LinkType -eq 'Junction' -and "$($link.LinkTarget)".TrimEnd('\') -eq $ownLink) {
+                    $harness = [pscustomobject]@{ Temp = $dir.FullName; ModDirectory = Join-Path $dir.FullName 'mods' }
+                }
+            }
+        }
+        if ($harness) {
+            try { Remove-LoadHarness -Harness $harness }
+            catch {
+                Write-Warning -WarningAction Continue "could not remove the load harness at $($harness.Temp): $_; junctions may remain in its mods folder, so unlink them with rmdir before deleting it"
+            }
+        }
+        if (Test-Path $timerCopy) {
+            try { Remove-Item $timerCopy -Recurse -Force }
+            catch { Write-Warning -WarningAction Continue "could not remove the timer-mod copy at ${timerCopy}: $_" }
+        }
     }
 }
 
