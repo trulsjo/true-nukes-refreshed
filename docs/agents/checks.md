@@ -7,7 +7,9 @@ setup every run needs: the pinned `FACTORIO_EXE`, the submodule, the commit hook
 change and green with it reverted, on the same input, or the other way round for a change that
 stops a false failure.** A run that fails the same way without the change shows nothing: PR #79's
 first evidence, `load-check.ps1` with a `-FactorioExe` that names no file, exits 1 without the new
-call too.
+call too. **A new check in a test goes in with the run that turns it red**, by a break written into
+the code it checks for one run where nothing else would: PR #83's "mod folders unchanged" check and
+PR #84's claim to cover `-Disabled` had none, and could not fail.
 
 `.github/workflows/check.yml` runs what needs no game on every pull request and push to `main`:
 the commit check, the mode of each `.githooks/` file, and three of the four tests `load-check.ps1`
