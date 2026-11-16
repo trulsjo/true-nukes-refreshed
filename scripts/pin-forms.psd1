@@ -7,12 +7,13 @@
 # -SelfTest of every tools script this repository runs or loads (grado-factorio-tools#318, ruling
 # 3), and each script of this repository's own that reaches into vendor/, but one:
 # - scripts/freeze-time.ps1 takes hours. Its reference names load-harness-lib.ps1, which a form
-#   runs, so the measurement does not list it, though nothing measures freeze-time.ps1 itself.
+#   runs, so the measurement does not list it. Its timing runs are measured nowhere; its setup and
+#   cleanup through the library are, by the freeze-time-cleanup form below.
 # The windowed probes of scripts/port-probe.ps1 must run alone (docs/agents/checks.md), so its
 # form runs the headless basic.
-# Four forms start the game. They and harness-lib, which reads the install's data folder, need
-# FACTORIO_EXE set to the pinned 2.1.24 install (CLAUDE.md, Checks): unset, the harness falls back
-# to the Steam path without a word.
+# Four forms start the game. They, harness-lib and freeze-time-cleanup, which read the install's
+# data folder, need FACTORIO_EXE set to the pinned 2.1.24 install (CLAUDE.md, Checks): unset, the
+# harness falls back to the Steam path without a word.
 @{
     Forms = @(
         # .githooks/commit-msg hands it the message file. check.yml runs it over the event's range,
@@ -36,8 +37,14 @@
         @{ Name = 'pin-measure-selftest'; From = 'tools'; Script = 'pin-measure.ps1'; Args = @('-SelfTest') }
         # New-LoadHarness, Write-HarnessModList without -Disabled and Remove-LoadHarness, each
         # checked for what it leaves. Invoke-Factorio and Get-FactorioErrorText run only in the
-        # game forms, and no form passes -Disabled, which freeze-time.ps1 does. Runs no game.
+        # game forms; -Disabled is freeze-time-cleanup's. Runs no game.
         @{ Name = 'harness-lib'; From = 'sibling'; Script = 'scripts/tests/harness-lib.ps1'; Args = @() }
+        # freeze-time.ps1's setup and cleanup, through stand-ins: New-LoadHarness on a junctioned
+        # mod directory and a failing install, Write-HarnessModList with -Disabled, which no other
+        # form passes, and Remove-LoadHarness and Remove-TempDirectory however a session ends,
+        # Ctrl+C-style stops mid-build included. Every case ends before Invoke-Factorio, so it
+        # starts no game, and freeze-time.ps1's timing runs stay unmeasured.
+        @{ Name = 'freeze-time-cleanup'; From = 'sibling'; Script = 'scripts/tests/freeze-time-cleanup.ps1'; Args = @() }
         # load-check.ps1 loads the three mods through load-harness.ps1, after four tests that run
         # no game: asset-paths.ps1, strict-lists.ps1, script-help.ps1 and harness-lib.ps1, which
         # keeps its own form above so the table shows it apart. Its -Check,
