@@ -15,13 +15,13 @@ assertion and PR #84's claim to cover `-Disabled`, which no assertion read, went
 without one.
 
 `.github/workflows/check.yml` runs what needs no game on every pull request and push to `main`:
-the commit check, the mode of each `.githooks/` file, and three of the four tests `load-check.ps1`
-runs before the game. A test added to `load-check.ps1` gets a step there too, unless it needs a
-game install, as `scripts/tests/harness-lib.ps1` does for the install's data folder.
-`scripts/tests/ci-steps.ps1`, a step itself, holds that: it fails on a test `load-check.ps1` runs
-that is neither a step nor on its own list of tests CI cannot run, each with its reason, and on a
-listed one CI runs anyway or `load-check.ps1` no longer runs. A test that needs an install goes on
-that list.
+the commit check, the mode of each `.githooks/` file, and three of the four scripts `load-check.ps1`
+runs before the game: its three checks, not its test. A script added to those gets a step there
+too, unless it needs a game install, as the test `scripts/tests/harness-lib.ps1` does for the
+install's data folder. `scripts/tests/ci-steps.ps1`, a step itself, holds that: it fails on a
+script `load-check.ps1` runs before the game that is neither a step nor on its own list of scripts
+CI cannot run, each with its reason, and on a listed one CI runs anyway or `load-check.ps1` no
+longer runs. A script that needs an install goes on that list.
 
 ## `scripts/load-check.ps1`
 
