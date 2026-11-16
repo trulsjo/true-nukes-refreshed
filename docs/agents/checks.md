@@ -115,4 +115,10 @@ Times a 15 kt blast's freeze on 2.0 with Continued against 2.1 with these mods (
   `scripts/tests/freeze-time.ps1` checks that reading on made-up logs in seconds.
 - Its wall times hold only on a machine with no other Factorio running and memory to spare. On #33
   each slowed a session without a sign in the log.
-- Its temp directories can still leak the way #61 fixed in the probe runner (#63).
+- Each session removes its timer-mod copy (`tnf-*`) and its load harness (`load-harness-*`)
+  however it ends, with the same exceptions as the probe runner's, as its help says (#63).
+  `pwsh -NoProfile -File scripts/tests/freeze-time-cleanup.ps1` checks that with stand-ins: a setup
+  failure, an error after the harness is built, a removal that fails under
+  `$WarningPreference = 'Stop'`, and a stop mid-build on either side of the session's own junction.
+  It needs `FACTORIO_EXE` but no 2.0 install, starts no game, and takes under a minute. Run
+  it after any change to `Invoke-Session`'s setup or `finally`.
