@@ -122,5 +122,7 @@ Times a 15 kt blast's freeze on 2.0 with Continued against 2.1 with these mods (
   `pwsh -NoProfile -File scripts/tests/freeze-time-cleanup.ps1` checks that with stand-ins: a setup
   failure, an error after the harness is built, a removal that fails under
   `$WarningPreference = 'Stop'`, and a stop mid-build on either side of the session's own junction.
-  It needs `FACTORIO_EXE` but no 2.0 install, starts no game, and takes under a minute. Run
-  it after any change to `Invoke-Session`'s setup or `finally`.
+  It also checks that the save-creation session's mod list disables the Continued stand-ins and the
+  timer, as `-Disabled` writes it. It needs `FACTORIO_EXE` but no 2.0 install, starts no game, and
+  takes under a minute. Run it after any change to `Invoke-Session`'s setup or `finally`.
+  `scripts/pin-forms.psd1` runs it as a form when the tools pin moves.
