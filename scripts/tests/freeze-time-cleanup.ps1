@@ -18,7 +18,9 @@
       setup       a -Factorio20Exe with no data directory beside it: New-LoadHarness fails, the
                   run fails and reports it, and nothing is left.
       throws      a Get-CimInstance that throws, after the harness is built: the session's own error
-                  is reported and nothing is left.
+                  is reported and nothing is left. The stand-in first copies the harness's
+                  mod-list.json aside, which must name the Continued stand-ins and the timer
+                  disabled, as -Disabled writes them for the save-creation session.
       warnstop    the same under $WarningPreference = 'Stop', with the harness's removal made to
                   fail: the session's own error still wins, the timer copy is still removed, and
                   the harness is left without junctions, named in a warning.
@@ -62,9 +64,12 @@ if (-not $env:FACTORIO_EXE -or -not (Test-Path $env:FACTORIO_EXE)) { throw "Set 
 
 $failed = 0
 $checked = 0
-function Check([bool] $Ok, [string] $What) {
+# $Detail is printed only on a failure. It often names a temp directory, which differs on every
+# run, so an ok line holds none and pin-measure.ps1 can read the form as the same at both pins.
+function Check([bool] $Ok, [string] $What, [string] $Detail) {
     $script:checked++
-    if ($Ok) { Write-Host "ok: $What" } else { Write-Host "FAILED: $What"; $script:failed++ }
+    if ($Ok) { Write-Host "ok: $What" }
+    else { Write-Host "FAILED: $What$(if ($Detail) { " ($Detail)" })"; $script:failed++ }
 }
 
 # The repository's mods, which the script's 2.1 sessions junction. No case reaches a 2.1 session,
@@ -105,7 +110,7 @@ foreach ($m in @(@{ Name = 'True-Nukes_Continued'; Version = '0.3.36' }, @{ Name
 }
 function Test-Sources([string] $Case) {
     $gone = @($sentinels | Where-Object { -not (Test-Path -LiteralPath $_) })
-    Check ($gone.Count -eq 0) "${Case}: the junctioned stand-in mods' files are all still there ($($gone -join ' '))"
+    Check ($gone.Count -eq 0) "${Case}: the junctioned stand-in mods' files are all still there" "$($gone -join ' ')"
 }
 
 function Get-TempDirs {
@@ -161,17 +166,25 @@ try {
         $text = & pwsh -NoProfile -File $script -Sessions 1 -Factorio20Exe $a.Factorio20Exe -ContinuedMods $a.ContinuedMods `
             -Save $a.Save -LogDirectory $a.LogDirectory 2>&1 | ForEach-Object { "$_" }
         $code = $LASTEXITCODE
-        Check ($code -ne 0) "the run fails (exit $code)"
+        Check ($code -ne 0) "the run fails" "exit $code"
         Check ([bool](@($text) -match 'Factorio data directory not found')) 'it reports the missing data directory'
         $new = @(Get-NewDirs $before)
-        Check ($new.Count -eq 0) "nothing is left ($($new -join ' '))"
+        Check ($new.Count -eq 0) "nothing is left" "$($new -join ' ')"
         Test-Sources 'setup'
         $new | ForEach-Object { Remove-Leftover $_ }
     }
 
     # A Get-CimInstance that throws: the first thing in the session's try after the harness is
-    # built and its mod list written. Each case adds what it needs to the prelude.
-    $throwCim = 'function Get-CimInstance { throw "simulated: Get-CimInstance failed" }'
+    # built and its mod list written. It first copies that list aside, reading Invoke-Session's
+    # $harness through PowerShell's dynamic scope, so throws can check what -Disabled wrote. Each
+    # case adds what it needs to the prelude.
+    $modList = Join-Path $marks 'mod-list.json'
+    $throwCim = @"
+function Get-CimInstance {
+    Copy-Item (Join-Path `$harness.ModDirectory 'mod-list.json') '$modList' -Force
+    throw "simulated: Get-CimInstance failed"
+}
+"@
     # A Remove-Item that fails on one kind of directory. The shared harness removes its directory
     # with -ErrorAction SilentlyContinue, under which a throw can be swallowed, so for a harness the
     # stand-in leaves it in place and the shared removal warns, as probe-runner-cleanup.ps1's does.
@@ -199,22 +212,31 @@ function Remove-Item {
         try { $ps.Invoke() | Out-Null } catch { $err = Get-ErrorMessage $_ }
         $warnings = @($ps.Streams.Warning | ForEach-Object Message)
         $ps.Dispose()
-        Check ($err -match 'simulated: Get-CimInstance failed') "the session's own error is reported ($err)"
+        Check ($err -match 'simulated: Get-CimInstance failed') "the session's own error is reported" "$err"
         $new = @(Get-NewDirs $before)
         $harnesses = @($new -like 'load-harness-*')
         $copies = @($new -like 'tnf-*')
-        Check (-not ($harnesses | Where-Object { @(Get-Junctions $_).Count })) "no harness is left with junctions ($($harnesses -join ' '))"
+        Check (-not ($harnesses | Where-Object { @(Get-Junctions $_).Count })) "no harness is left with junctions" "$($harnesses -join ' ')"
         switch ($case) {
-            'throws' { Check ($new.Count -eq 0) "nothing is left ($($new -join ' '))" }
+            'throws' {
+                Check ($new.Count -eq 0) "nothing is left" "$($new -join ' ')"
+                # The create session passes every harness mod to -Disabled, so the save is base
+                # only: the list must name the two Continued stand-ins and the timer, each disabled.
+                $listed = if (Test-Path $modList) { @((Get-Content $modList -Raw | ConvertFrom-Json).mods) } else { @() }
+                foreach ($name in 'True-Nukes_Continued', 'Warheads_Continued', 'tn-freeze-timer') {
+                    $entry = @($listed | Where-Object name -eq $name)
+                    Check ($entry.Count -eq 1 -and $entry[0].enabled -eq $false) "the create session's mod list disables $name" "$($entry | ConvertTo-Json -Compress)"
+                }
+            }
             'warnstop' {
-                Check ($copies.Count -eq 0) "the timer copy is removed ($($copies -join ' '))"
-                Check ($harnesses.Count -eq 1) "the harness whose removal was made to fail is left ($($harnesses -join ' '))"
-                foreach ($h in $harnesses) { Check ([bool]($warnings -match [regex]::Escape($h))) "a warning names $h" }
+                Check ($copies.Count -eq 0) "the timer copy is removed" "$($copies -join ' ')"
+                Check ($harnesses.Count -eq 1) "the harness whose removal was made to fail is left" "$($harnesses -join ' ')"
+                foreach ($h in $harnesses) { Check ([bool]($warnings -match [regex]::Escape($h))) 'a warning names the harness' $h }
             }
             'copyfails' {
-                Check ($harnesses.Count -eq 0) "the harness is removed ($($harnesses -join ' '))"
-                Check ($copies.Count -eq 1) "the timer copy whose removal was made to fail is left ($($copies -join ' '))"
-                foreach ($c in $copies) { Check ([bool]($warnings -match [regex]::Escape($c))) "a warning names $c" }
+                Check ($harnesses.Count -eq 0) "the harness is removed" "$($harnesses -join ' ')"
+                Check ($copies.Count -eq 1) "the timer copy whose removal was made to fail is left" "$($copies -join ' ')"
+                foreach ($c in $copies) { Check ([bool]($warnings -match [regex]::Escape($c))) 'a warning names the timer copy' $c }
             }
         }
         Test-Sources $case
@@ -264,10 +286,10 @@ function New-Item {
         $new = @(Get-NewDirs $before)
         Check (-not ($new -like 'tnf-*')) 'the timer copy is removed'
         if ($case -eq 'buildown') {
-            Check ($new.Count -eq 0) "nothing is left ($($new -join ' '))"
+            Check ($new.Count -eq 0) "nothing is left" "$($new -join ' ')"
         } else {
             $harnesses = @($new -like 'load-harness-*' | Where-Object { $_ -ne $decoy })
-            Check ($harnesses.Count -eq 1) "the harness it can't prove its own is left ($($harnesses -join ' '))"
+            Check ($harnesses.Count -eq 1) "the harness it can't prove its own is left" "$($harnesses -join ' ')"
             Check ($harnesses.Count -eq 1 -and [bool]($warnings -match [regex]::Escape($harnesses[0]))) 'a warning names it'
             $link = Get-Item -LiteralPath (Join-Path $scratch "$decoy\mods\tn-freeze-timer") -Force -ErrorAction SilentlyContinue
             Check ($link -and $link.LinkType -eq 'Junction' -and (Test-Path (Join-Path $foreign 'sentinel.txt'))) 'the decoy harness linked to another copy is left as it was'
