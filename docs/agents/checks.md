@@ -116,7 +116,9 @@ Times a 15 kt blast's freeze on 2.0 with Continued against 2.1 with these mods (
 - Its wall times hold only on a machine with no other Factorio running and memory to spare. On #33
   each slowed a session without a sign in the log.
 - Each session removes its timer-mod copy (`tnf-*`) and its load harness (`load-harness-*`)
-  however it ends, with the same exceptions as the probe runner's, as its help says (#63).
+  however it ends, as its help says (#63). It keeps the probe runner's exceptions, and also names,
+  without removing, a new harness linked to another run's timer copy, which the probe runner leaves
+  unnamed. It needs pwsh 7.2.
   `pwsh -NoProfile -File scripts/tests/freeze-time-cleanup.ps1` checks that with stand-ins: a setup
   failure, an error after the harness is built, a removal that fails under
   `$WarningPreference = 'Stop'`, and a stop mid-build on either side of the session's own junction.
