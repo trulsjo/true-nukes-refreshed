@@ -1,30 +1,31 @@
 <#
 .SYNOPSIS
-    Every test scripts/load-check.ps1 runs before the game is a step of .github/workflows/check.yml,
-    or is on this script's list of tests CI cannot run.
+    Every script scripts/load-check.ps1 runs before the game, check or test, is a step of
+    .github/workflows/check.yml, or is on this script's list of scripts CI cannot run.
 
 .DESCRIPTION
-    docs/agents/checks.md asks that a test added to load-check.ps1 get a CI step too, unless it
-    needs a game install. On PR #79 the count of those tests stood in four files, and one was
-    missed until review; this holds the rule itself.
+    docs/agents/checks.md asks that a script added to those load-check.ps1 runs before the game get
+    a CI step too, unless it needs a game install. On PR #79 the count of those scripts stood in
+    four files, and one was missed until review; this holds the rule itself.
 
-    The tests load-check.ps1 runs are the strings in it, constant or expandable, that name
-    tests/<name>.ps1 or tests\<name>.ps1, read from the parser, so its help text does not count:
-    Join-Path $PSScriptRoot 'tests/<name>.ps1', "$PSScriptRoot/tests/<name>.ps1" and
+    The scripts load-check.ps1 runs before the game are the strings in it, constant or expandable,
+    that name tests/<name>.ps1 or tests\<name>.ps1, read from the parser, so its help text does not
+    count: Join-Path $PSScriptRoot 'tests/<name>.ps1', "$PSScriptRoot/tests/<name>.ps1" and
     pwsh -File scripts/tests/<name>.ps1 are each seen. A path joined from parts, as
     Join-Path $PSScriptRoot 'tests' '<name>.ps1', or with its name held in a variable, as
-    "tests/$t.ps1", is not; load-check.ps1 calls each test the first way. A string naming a test
+    "tests/$t.ps1", is not; load-check.ps1 calls each the first way. A string naming a script
     that nothing runs counts as run.
 
-    A test is in CI where a line of the workflow, with its # comment cut, holds
+    A script is in CI where a line of the workflow, with its # comment cut, holds
     -File scripts/tests/<name>.ps1. A line that holds it without running it, as a step's name: or a
     run: that only echoes it, counts too, and so does a step that never runs, as one whose if: is
-    false. A step that runs the test written another way, as & ./scripts/tests/<name>.ps1, does not
-    count.
+    false. A step that runs the script written another way, as & ./scripts/tests/<name>.ps1, does
+    not count.
 
-    It fails on a test in neither, on a listed exception CI runs anyway or load-check.ps1 no longer
-    runs, on an input file that does not exist, and when it finds no test in load-check.ps1 at all,
-    which would mean load-check.ps1 calls its tests some other way. It runs no game.
+    It fails on a script in neither, on a listed exception CI runs anyway or load-check.ps1 no
+    longer runs, on an input file that does not exist, and when it finds no such script in
+    load-check.ps1 at all, which would mean load-check.ps1 calls them some other way. It runs no
+    game.
 
 .PARAMETER LoadCheck
     The load check to read. Defaults to scripts/load-check.ps1.
@@ -45,8 +46,8 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# The tests load-check.ps1 runs that CI cannot, and why. A new one goes here with its reason, and
-# docs/agents/checks.md's intro says so.
+# The scripts load-check.ps1 runs before the game that CI cannot, and why. A new one goes here with
+# its reason, and docs/agents/checks.md's intro says so.
 $except = @{
     'harness-lib.ps1' = "reads a game install's data folder"
 }
@@ -82,11 +83,11 @@ $broken = @(
     }
 )
 if ($broken.Count) {
-    Write-Host "ci-steps: CHECK FAILED: load-check.ps1's tests and check.yml's steps disagree"
+    Write-Host "ci-steps: CHECK FAILED: the scripts load-check.ps1 runs before the game and check.yml's steps disagree"
     $broken | ForEach-Object { Write-Host "  $_" }
     exit 1
 }
 $ran = @($run | Where-Object { $_ -in $inCi })
 $listed = if ($except.Count) { "; the rest are listed: $(($except.Keys | Sort-Object) -join ', ')" } else { '' }
-Write-Host "ci-steps: CHECK PASSED: $($ran.Count) of load-check.ps1's $($run.Count) tests run in check.yml$listed"
+Write-Host "ci-steps: CHECK PASSED: $($ran.Count) of the $($run.Count) scripts load-check.ps1 runs before the game run in check.yml$listed"
 exit 0
