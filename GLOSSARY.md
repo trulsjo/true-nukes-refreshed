@@ -3,8 +3,8 @@
 The port of the True Nukes mods to Factorio 2.1, and the scripts that check it. Its terms for
 tooling are grado-factorio-tools' (`vendor/grado-factorio-tools/GLOSSARY.md`), which are
 realistic-fusion-refreshed's: a term defined there means the same here, and this page adds only
-what this repository needs. Two terms differ from it. **Test** narrows the family's check: a test
-here is not a check, though a check may run one. **Probe** is left undefined: there a probe asserts
+what this repository needs. It differs from it in two places. **Check** is narrower here: a test
+is not a check, though a check may run one. **Probe** is left undefined: there a probe asserts
 nothing, while this repository's probes pass or fail (#87).
 
 ## Language
