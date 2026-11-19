@@ -17,12 +17,13 @@ up for review without one.
 
 `.github/workflows/check.yml` runs what needs no game on every pull request and push to `main`:
 the commit check, the mode of each `.githooks/` file, and three of the four scripts `load-check.ps1`
-runs before the game: its three checks, not its test. A script added to those gets a step there
-too, unless it needs a game install, as the test `scripts/tests/harness-lib.ps1` does for the
-install's data folder. `scripts/tests/ci-steps.ps1`, a step itself, holds that: it fails on a
-script `load-check.ps1` runs before the game that is neither a step nor on its own list of scripts
-CI cannot run, each with its reason, and on a listed one CI runs anyway or `load-check.ps1` no
-longer runs. A script that needs an install goes on that list.
+runs before the game: the three checks, not the test. A script added to those `load-check.ps1`
+runs before the game, check or test, gets a step there too, unless it needs a game install, as the
+test `scripts/tests/harness-lib.ps1` does for the install's data folder.
+`scripts/tests/ci-steps.ps1`, a step itself, holds that: it fails on a script `load-check.ps1` runs
+before the game that is neither a step nor on its own list of scripts CI cannot run, each with its
+reason, and on a listed one CI runs anyway or `load-check.ps1` no longer runs. A script that needs
+an install goes on that list.
 
 ## `scripts/load-check.ps1`
 
