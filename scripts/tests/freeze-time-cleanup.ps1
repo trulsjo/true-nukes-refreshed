@@ -38,7 +38,7 @@
     run only once it sees it. A case that never reaches its pause fails. Any leftover is removed by
     unlinking each junction before deleting the directory. The repository's mod folders are checked
     unchanged at the end, through git, which must read the repository; no case junctions them, so
-    that check is a guard, and the sentinels are what can go red.
+    that assertion is a guard, and the sentinels are what can go red.
 
     Needs FACTORIO_EXE set to the pinned 2.1.24 install: New-LoadHarness reads its data folder.
     Takes under a minute.
@@ -73,7 +73,7 @@ function Check([bool] $Ok, [string] $What, [string] $Detail) {
 }
 
 # The repository's mods, which the script's 2.1 sessions junction. No case reaches a 2.1 session,
-# so this is a guard, not a check that can go red here; the Continued stand-ins below are.
+# so this is a guard, not an assertion that can go red here; the Continued stand-ins below are.
 $modDirs = @('true-nukes-refreshed', 'warheads-refreshed', 'true-nukes-graphics-refreshed')
 function Get-ModState {
     $status = git -C $repo status --porcelain --ignored -- @modDirs
@@ -310,7 +310,7 @@ finally {
 }
 
 Check (((Get-ModState) -join "`n") -eq $modsBefore) "the repository's mod folders are unchanged"
-if (-not $checked) { Write-Host 'CHECK FAILED: no check ran'; exit 1 }
+if (-not $checked) { Write-Host 'CHECK FAILED: no assertion ran'; exit 1 }
 if ($failed) { Write-Host "CHECK FAILED: $failed of $checked"; exit 1 }
-Write-Host "CHECK PASSED: $checked checks"
+Write-Host "CHECK PASSED: $checked assertions"
 exit 0
