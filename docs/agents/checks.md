@@ -4,16 +4,16 @@ The checks of the mods and of the repository, and the tests of the scripts. `CLA
 has the setup every run needs: the pinned `FACTORIO_EXE`, the submodule, the commit hook and
 `-NoProfile`.
 
-**A change to what a check fails on, or to whether it runs, shows a run that goes red with the
-change and green with it reverted, on the same input, or the other way round for a change that
-stops a false failure.** A run that fails the same way without the change shows nothing: PR #79's
-first evidence, `load-check.ps1` with a `-FactorioExe` that names no file, exits 1 without the new
-call too. **A new assertion in a test, or a new claim that a test or form covers something, goes
-in with a run in which that assertion, or the assertion behind the claim, itself goes red:** on the
-code before the change where that does it, otherwise with the checked code or its input broken for
-one run. A failure elsewhere in the test is not that run. PR #83's "mod folders unchanged"
-assertion and PR #84's claim to cover `-Disabled`, which no assertion read, went up for review
-without one.
+**A change to what a check or a test fails on, or to whether it runs, shows a run that goes red
+with the change and green with it reverted, on the same input, or the other way round for a change
+that stops a false failure.** A run that fails the same way without the change shows nothing:
+PR #79's first evidence, `load-check.ps1` with a `-FactorioExe` that names no file, exits 1
+without the new call too. **A new assertion in a test, or a new claim that a test or form covers
+something, goes in with a run in which that assertion, or the assertion behind the claim, itself
+goes red:** on the code before the change where that does it, otherwise with the checked code or
+its input broken for one run. A failure elsewhere in the test is not that run. PR #83's "mod
+folders unchanged" assertion and PR #84's claim to cover `-Disabled`, which no assertion read, went
+up for review without one.
 
 `.github/workflows/check.yml` runs what needs no game on every pull request and push to `main`:
 the commit check, the mode of each `.githooks/` file, and three of the four scripts `load-check.ps1`
