@@ -77,6 +77,6 @@ try {
 }
 finally { Remove-Item -LiteralPath $empty -Recurse -Force }
 
-if ($failures.Count) { Write-Host "CHECK FAILED: $($failures.Count) of the load-harness-lib checks"; exit 1 }
+if ($failures.Count) { Write-Host "CHECK FAILED: $($failures.Count) of the load-harness-lib assertions"; exit 1 }
 Write-Host 'CHECK PASSED: load-harness-lib.ps1 built, listed and removed a harness for the three mods, and refused an empty folder'
 exit 0

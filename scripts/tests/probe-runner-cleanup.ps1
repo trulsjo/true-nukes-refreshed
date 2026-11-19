@@ -315,7 +315,7 @@ finally {
     else { Remove-Item $scratch -Recurse -Force -ErrorAction SilentlyContinue }
 }
 
-if (-not $checked) { Write-Host 'CHECK FAILED: no check ran'; exit 1 }
+if (-not $checked) { Write-Host 'CHECK FAILED: no assertion ran'; exit 1 }
 if ($failed) { Write-Host "CHECK FAILED: $failed of $checked"; exit 1 }
-Write-Host "CHECK PASSED: $checked checks"
+Write-Host "CHECK PASSED: $checked assertions"
 exit 0
