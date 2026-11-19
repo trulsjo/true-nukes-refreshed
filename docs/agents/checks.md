@@ -1,7 +1,8 @@
 # Checks
 
-The scripts that check the mods, and the tests that check the scripts. `CLAUDE.md` *Checks* has the
-setup every run needs: the pinned `FACTORIO_EXE`, the submodule, the commit hook and `-NoProfile`.
+The checks of the mods and of the repository, and the tests of the scripts. `CLAUDE.md` *Checks*
+has the setup every run needs: the pinned `FACTORIO_EXE`, the submodule, the commit hook and
+`-NoProfile`.
 
 **A change to what a check fails on, or to whether it runs, shows a run that goes red with the
 change and green with it reverted, on the same input, or the other way round for a change that
