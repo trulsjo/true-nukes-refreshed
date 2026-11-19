@@ -89,5 +89,5 @@ if ($broken.Count) {
 }
 $ran = @($run | Where-Object { $_ -in $inCi })
 $listed = if ($except.Count) { "; the rest are listed: $(($except.Keys | Sort-Object) -join ', ')" } else { '' }
-Write-Host "ci-steps: CHECK PASSED: $($ran.Count) of the $($run.Count) scripts load-check.ps1 runs before the game run in check.yml$listed"
+Write-Host "ci-steps: CHECK PASSED: check.yml runs $($ran.Count) of the $($run.Count) scripts load-check.ps1 runs before the game$listed"
 exit 0
