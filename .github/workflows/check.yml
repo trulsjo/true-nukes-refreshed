@@ -107,7 +107,9 @@ jobs:
       - name: line-cite-check.ps1
         if: ${{ !cancelled() }}
         shell: pwsh
-        run: ./vendor/grado-factorio-tools/scripts/line-cite-check.ps1 -Foreign '\.lua:\d+: attempt to ' -MinCitations 2
+        # A block, since the pattern's ": " would end a plain scalar's key.
+        run: |
+          ./vendor/grado-factorio-tools/scripts/line-cite-check.ps1 -Foreign '\.lua:\d+: attempt to ' -MinCitations 2
 
       # Each word of a tracked file that names a commit here names one origin/main reaches, so no
       # file cites a branch commit a rebase-merge rewrites (#73).
