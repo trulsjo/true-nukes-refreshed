@@ -1,15 +1,16 @@
 <#
 .SYNOPSIS
-    Every script scripts/load-check.ps1 runs before the game, check or test, is a step of
-    .github/workflows/check.yml, or is on this script's list of scripts CI cannot run.
+    Every script scripts/load-check.ps1 names, check or test, is a step of
+    .github/workflows/check.yml, or is on this script's list of scripts CI cannot run. Those are
+    the scripts it runs before the game, and tests/missing-assets.ps1, which it runs on the game.
 
 .DESCRIPTION
     docs/agents/checks.md asks that a script added to those load-check.ps1 runs before the game get
     a CI step too, unless it needs a game install. On PR #79 the count of those scripts stood in
     four files, and one was missed until review; this holds the rule itself.
 
-    The scripts load-check.ps1 runs before the game are the strings in it, constant or expandable,
-    that name tests/<name>.ps1 or tests\<name>.ps1, read from the parser, so its help text does not
+    The scripts load-check.ps1 names are the strings in it, constant or expandable, that name
+    tests/<name>.ps1 or tests\<name>.ps1, read from the parser, so its help text does not
     count: Join-Path $PSScriptRoot 'tests/<name>.ps1', "$PSScriptRoot/tests/<name>.ps1" and
     pwsh -File scripts/tests/<name>.ps1 are each seen. A path joined from parts, as
     Join-Path $PSScriptRoot 'tests' '<name>.ps1', or with its name held in a variable, as
@@ -86,11 +87,11 @@ $broken = @(
     }
 )
 if ($broken.Count) {
-    Write-Host "ci-steps: CHECK FAILED: the scripts load-check.ps1 runs before the game and check.yml's steps disagree"
+    Write-Host "ci-steps: CHECK FAILED: the scripts load-check.ps1 names and check.yml's steps disagree"
     $broken | ForEach-Object { Write-Host "  $_" }
     exit 1
 }
 $ran = @($run | Where-Object { $_ -in $inCi })
 $listed = if ($except.Count) { "; the rest are listed: $(($except.Keys | Sort-Object) -join ', ')" } else { '' }
-Write-Host "ci-steps: CHECK PASSED: check.yml runs $($ran.Count) of the $($run.Count) scripts load-check.ps1 runs before the game$listed"
+Write-Host "ci-steps: CHECK PASSED: check.yml runs $($ran.Count) of the $($run.Count) scripts load-check.ps1 names$listed"
 exit 0
