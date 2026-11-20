@@ -7,8 +7,9 @@
 .DESCRIPTION
     A headless load opens no sprite or sound, so a prototype naming a file that is not there
     validates and the load exits 0, while the player's game refuses to start on it. The shared
-    Find-MissingAssets in vendor/grado-factorio-tools/scripts/load-harness-lib.ps1 walks this
-    load's --dump-data and checks each path (#73); its comment says what it reads and why.
+    Find-MissingAssets in vendor/grado-factorio-tools/scripts/load-harness-lib.ps1 walks a
+    --dump-data of the loaded mods, which Invoke-HarnessDump starts the game again for in the same
+    harness, and checks each path (#73); its comment says what it reads and why.
 
     WHAT IS CHECKED. Paths under __base__ and __core__, against the install's data folder, and
     under the three mods of this repository, against their folders here. A path of any other mod
