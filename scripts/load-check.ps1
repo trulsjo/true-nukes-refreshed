@@ -13,10 +13,12 @@
     stops it if three of the shared library's functions, New-LoadHarness, Write-HarnessModList
     and Remove-LoadHarness, do not build, list and remove a harness for the three mods.
 
-    On the loaded game, tests/missing-assets.ps1 then fails if a .png or .ogg the prototypes name
-    is not on disk, by the shared Find-MissingAssets, before any -Check given here. After the load,
-    the shared locale-check.ps1 -Prefix TN-, with a load of its own, fails if a prototype of the
-    mods' own would show a player something other than its name (#73).
+    After the load, tests/missing-assets.ps1 starts the game again in the same harness for a data
+    dump, and fails if a .png or .ogg the prototypes name is not on disk, by the shared
+    Find-MissingAssets, before any -Check given here. Then the shared locale-check.ps1 -Prefix TN-,
+    in a harness of its own, starts the game twice for two dumps and fails if a prototype of the
+    mods' own would show a player something other than its name (#73). So a run starts the game
+    four times.
 
 .PARAMETER FactorioExe
     Path to factorio.exe. Defaults to the harness's own lookup: $env:FACTORIO_EXE, then Steam.

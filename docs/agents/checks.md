@@ -56,15 +56,17 @@ prototype validates and every `on_init` runs. It runs no ticks.
   `scripts/tests/harness-lib.ps1`, which builds, lists and removes a harness for the three mods with
   three of the shared library's functions, `New-LoadHarness`, `Write-HarnessModList` and
   `Remove-LoadHarness`, and fails on what each leaves wrong (see its own entry below).
-- On the loaded game, `scripts/tests/missing-assets.ps1` fails if a `.png` or `.ogg` the
-  prototypes name, under one of the three mods or under `__base__` or `__core__`, is not on disk,
-  by the shared `Find-MissingAssets` over the load's data dump (#73). It catches a path built by
-  joining strings, which `asset-paths.ps1` cannot. A `-Check` given `load-check.ps1` runs after
-  it, on the same load.
-- After the load, the shared `locale-check.ps1 -Prefix TN-`, with a load of its own, fails if a
-  prototype whose name starts with `TN-` would show a player something other than its name. It
-  reads no other prototype: the warheads' generated items, as `shotgun-shell-slug-atomic-2t`, are
-  not checked (#73).
+- After the load, `scripts/tests/missing-assets.ps1`, as the harness's `-Check`, starts the game
+  again in the same harness for a data dump, and fails if a `.png` or `.ogg` the prototypes name,
+  under one of the three mods or under `__base__` or `__core__`, is not on disk, by the shared
+  `Find-MissingAssets` (#73). It catches a path built by joining strings, which `asset-paths.ps1`
+  cannot. A `-Check` given `load-check.ps1` runs after it, in the same harness.
+- Then the shared `locale-check.ps1 -Prefix TN-`, in a harness of its own, starts the game twice
+  for two dumps, and creates no map. It fails if a prototype whose name starts with `TN-` would
+  show a player something other than its name. It reads no other prototype: the warheads'
+  generated items, as `shotgun-shell-slug-atomic-2t`, are not checked (#73). A run of
+  `load-check.ps1` so starts the game four times: the load, the asset dump and the two locale
+  dumps.
 - `-Check scripts/tests/shotgun-items.ps1` also requires the six generated shotgun items.
 - `scripts/tests/recipe-category.ps1` loads Warheads alone under a mod that sets `recipe_category`.
 - `scripts/tests/harness-lib.ps1` builds, lists and removes a harness for the three mods with the
