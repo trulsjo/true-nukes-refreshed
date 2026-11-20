@@ -83,10 +83,14 @@ dirs="$(printf '%s\n' "$staged" | sed 's#/[^/]*$##' | sort -u)"
 (
     cd "$scratch" || exit 1
     s=0
-    for d in $dirs; do
+    # A folder a line, so a name holding a space stays one; fed by a here-document, not a pipe,
+    # so s set in the loop is this subshell's.
+    while IFS= read -r d; do
         pwsh -NoProfile -File "$tools/param-check.ps1" "$d" || s=1
         pwsh -NoProfile -File "$tools/variable-case-check.ps1" "$d" || s=1
-    done
+    done <<EOF
+$dirs
+EOF
     pwsh -NoProfile -File "$tools/help-check.ps1" "$list" || s=1
     if [ -z "$strict" ]; then
         echo "OK - strict-list check: none of the staged scripts sets strict mode, so none was read."
