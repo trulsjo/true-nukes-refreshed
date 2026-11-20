@@ -245,8 +245,13 @@ finally {
     try {
         # The shared Stop-LaunchedGame (#73) kills the game and waits for it to go, two minutes at
         # most, then warns; a game that exits before the kill is no error. It is given no harness:
-        # that is removed below, after the lock is released.
-        if ($proc) { Stop-LaunchedGame -Process $proc -Label 'port-probe' }
+        # that is removed below, after the lock is released. Past its two minutes the wait goes on
+        # here, without limit, so the lock is never released under a window still open. A kill
+        # that throws skips that wait, as before.
+        if ($proc) {
+            Stop-LaunchedGame -Process $proc -Label 'port-probe'
+            if (-not $proc.HasExited) { $proc.WaitForExit() }
+        }
     }
     finally {
         # Released only once the window is closed, so the next windowed run never overlaps this
