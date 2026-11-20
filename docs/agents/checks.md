@@ -54,6 +54,15 @@ prototype validates and every `on_init` runs. It runs no ticks.
   `scripts/tests/harness-lib.ps1`, which builds, lists and removes a harness for the three mods with
   three of the shared library's functions, `New-LoadHarness`, `Write-HarnessModList` and
   `Remove-LoadHarness`, and fails on what each leaves wrong (see its own entry below).
+- On the loaded game, `scripts/tests/missing-assets.ps1` fails if a `.png` or `.ogg` the
+  prototypes name, under one of the three mods or under `__base__` or `__core__`, is not on disk,
+  by the shared `Find-MissingAssets` over the load's data dump (#73). It catches a path built by
+  joining strings, which `asset-paths.ps1` cannot. A `-Check` given `load-check.ps1` runs after
+  it, on the same load.
+- After the load, the shared `locale-check.ps1 -Prefix TN-`, with a load of its own, fails if a
+  prototype whose name starts with `TN-` would show a player something other than its name. It
+  reads no other prototype: the warheads' generated items, as `shotgun-shell-slug-atomic-2t`, are
+  not checked (#73).
 - `-Check scripts/tests/shotgun-items.ps1` also requires the six generated shotgun items.
 - `scripts/tests/recipe-category.ps1` loads Warheads alone under a mod that sets `recipe_category`.
 - `scripts/tests/harness-lib.ps1` builds, lists and removes a harness for the three mods with the
@@ -112,6 +121,20 @@ a stop mid-build, normal runs, `-KeepTemp`, and Ctrl+C-style stops. It points `T
 scratch folder of its own, so it can only close or delete what its runs made. It opens game windows
 and takes about ten minutes, so run it with no other Factorio open. `-Only setup,throws` picks
 cases. Run it after any change to the runner's setup, lock or `finally`.
+
+## Playing by hand
+
+The shared [`dev-launch.ps1`](../../vendor/grado-factorio-tools/scripts/dev-launch.ps1) starts the
+game with its window and the three mods junctioned into a mod directory of their own (#73), for
+playing the port by hand (#27):
+
+```
+pwsh -NoProfile -File vendor/grado-factorio-tools/scripts/dev-launch.ps1 -FactorioExe D:\factorio-2.1\bin\x64\factorio.exe ./true-nukes-refreshed ./warheads-refreshed ./true-nukes-graphics-refreshed
+```
+
+Unlike the checks, it runs with the player's own write-data, so saves and settings are the
+player's; its header says what it guards and what it cannot see. `-Clean` removes its mod
+directory, junctions first.
 
 ## `scripts/freeze-time.ps1`
 

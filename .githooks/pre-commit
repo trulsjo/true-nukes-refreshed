@@ -1,0 +1,98 @@
+#!/bin/sh
+# Checks what the commit commits, as staged, with the shared checks of the tools pin (#73), and
+# runs every check so one commit shows what each found:
+#
+# - the staged Markdown, by markdown-check.ps1 with -MaxLineLength 100: what it reads as broken,
+#   and each prose line over 100 characters;
+# - the staged scripts, hooks and workflows, for a comment line over 100 characters, by
+#   comment-line-check.ps1, in the form its example gives, with scripts/ read to any depth;
+# - the staged *.ps1 under scripts/, the fixtures of scripts/tests/strict-lists/ aside, written
+#   out of the index into a folder under the git directory: by param-check.ps1, a list parameter
+#   never split on commas; by variable-case-check.ps1, a variable spelt two ways in one scope; by
+#   help-check.ps1, a help block PowerShell does not read; and, on those that set strict mode, by
+#   strict-list-check.ps1, a read strict mode can throw on. With none staged, it says it read none.
+#
+# The shared scripts are in vendor/grado-factorio-tools/scripts/. What each reads as what, and what
+# it cannot see, is in its header; this is only the wiring, after realistic-fusion-refreshed's
+# .githooks/pre-commit. Each reads whole files, so staging an old file holds all of it to the
+# checks. markdown-rewrap.ps1 beside them mends a long line: -Comment for a script's comments.
+#
+# INSTALL: the same two steps as commit-msg, which has them.
+#
+# A missing pwsh says nothing was checked and lets the commit through, and an uninitialised
+# submodule says the shared checks did NOT run and lets it through, the posture commit-msg takes
+# and for its reasons.
+#
+# What the scripts' step cannot see: a script is taken as setting strict mode where a line of it
+# begins with Set-StrictMode, after any indent. A path is listed with core.quotePath off; one git
+# quotes even so, as one holding a double quote, a backslash or a line break, is not read by the
+# scripts' step, and nothing says so. A path holding a comma is split by the checks.
+if ! command -v pwsh >/dev/null 2>&1; then
+    echo "pre-commit: pwsh not found, so the staged files were NOT checked." >&2
+    exit 0
+fi
+
+root="$(git rev-parse --show-toplevel)"
+cd "$root" || exit 1
+
+tools="$root/vendor/grado-factorio-tools/scripts"
+if [ ! -f "$tools/markdown-check.ps1" ]; then
+    echo "pre-commit: $tools/markdown-check.ps1 not found, so the staged files were NOT checked." >&2
+    echo "pre-commit: run 'git submodule update --init' to fetch the shared checks." >&2
+    exit 0
+fi
+
+status=0
+pwsh -NoProfile -File "$tools/markdown-check.ps1" -MaxLineLength 100 || status=1
+
+pwsh -NoProfile -File "$tools/comment-line-check.ps1" -Path 'scripts/**/*.ps1,.githooks/*,.github/workflows/*.yml' || status=1
+
+staged="$(git -c core.quotePath=false diff --cached --name-only --diff-filter=ACMR |
+    grep -E '^scripts/.*\.ps1$' | grep -v '^scripts/tests/strict-lists/')"
+if [ -z "$staged" ]; then
+    echo "OK - pre-commit: no *.ps1 under scripts/ is staged, so the parameter, variable-case, help and strict-list checks read none."
+    exit $status
+fi
+
+# Under the git directory, a path git and pwsh both read alike on every system. Removed on every
+# way out, an interrupt included.
+gitdir="$(git rev-parse --absolute-git-dir)"
+scratch="$gitdir/pre-commit-staged-$$"
+trap 'rm -rf "${scratch:?}"' EXIT
+trap 'exit 1' HUP INT TERM
+if ! printf '%s\n' "$staged" | git checkout-index --stdin --prefix="$scratch/"; then
+    echo "pre-commit: git checkout-index could not write the staged scripts out, so the scripts' checks did NOT run." >&2
+    exit 1
+fi
+missing="$(printf '%s\n' "$staged" | while IFS= read -r f; do
+    [ -f "$scratch/$f" ] || printf '%s\n' "$f"
+done)"
+if [ -n "$missing" ]; then
+    echo "pre-commit: these staged scripts could not be read as staged, so the scripts' checks did NOT run:" >&2
+    printf '%s\n' "$missing" | sed 's/^/    /' >&2
+    exit 1
+fi
+
+list="$(printf '%s\n' "$staged" | paste -sd, -)"
+strict="$(printf '%s\n' "$staged" | while IFS= read -r f; do
+    if grep -q '^[[:space:]]*Set-StrictMode' "$scratch/$f"; then printf '%s\n' "$f"; fi
+done | paste -sd, -)"
+# param-check and variable-case-check read every *.ps1 in one folder; in the scratch folder those
+# are the staged ones. Run from the folder, so each script is named by its path from the root.
+dirs="$(printf '%s\n' "$staged" | sed 's#/[^/]*$##' | sort -u)"
+(
+    cd "$scratch" || exit 1
+    s=0
+    for d in $dirs; do
+        pwsh -NoProfile -File "$tools/param-check.ps1" "$d" || s=1
+        pwsh -NoProfile -File "$tools/variable-case-check.ps1" "$d" || s=1
+    done
+    pwsh -NoProfile -File "$tools/help-check.ps1" "$list" || s=1
+    if [ -z "$strict" ]; then
+        echo "OK - strict-list check: none of the staged scripts sets strict mode, so none was read."
+    else
+        pwsh -NoProfile -File "$tools/strict-list-check.ps1" "$strict" || s=1
+    fi
+    exit $s
+) || status=1
+exit $status

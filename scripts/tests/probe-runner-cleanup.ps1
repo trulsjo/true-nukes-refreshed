@@ -12,23 +12,27 @@
     stand-ins:
       setup       a FACTORIO_EXE with no data directory beside it: the run fails, reports it, and
                   leaves nothing.
-      throws      a Stop-Process that throws: the run's own error is reported, the lock is free, the
+      throws      a game whose kill throws: the run's own error is reported, the lock is free, the
                   probe-mod copy is gone, and at most the harness a live game holds is left, without
                   junctions and named in a warning (accepted on #61).
-      warnstop    the same under $WarningPreference = 'Stop', with the harness's removal made to fail
-                  so that a cleanup warning always fires: the run's own error still wins.
+      warnstop    the same under $WarningPreference = 'Stop', with the harness's removal made to
+                  fail so that a cleanup warning always fires: the run's own error still wins.
       buildown    stopped while New-LoadHarness builds, after this run's own junction: nothing left.
       buildother  stopped before this run's own junction exists (the stand-in holds it back): the
-                  harness is left and a warning names it (#62).
-      normal      headless craters, windowed achieve, and a forced TIMEOUT: nothing left; exits 0, 0, 2.
-      keep        -KeepTemp: the harness is kept with its log and without junctions, the copy is gone.
+                  harness is left and a warning names it (#62). Before it pauses, the stand-in also
+                  makes a decoy harness whose tn-port-probe junction points at another copy, as
+                  another run's would: it is left as it was, and a warning names it (#85).
+      normal      headless craters, windowed achieve, and a forced TIMEOUT: nothing left; exits 0,
+                  0, 2.
+      keep        -KeepTemp: the harness is kept with its log and without junctions, the copy is
+                  gone.
       stop        stopped while its windowed game runs, and while waiting on a held lock, the way
                   Ctrl+C stops a run: nothing left, no game left running, the lock not left owned.
 
     Stops and stand-ins run the runner in a [powershell] instance, whose Stop() is the pipeline stop
-    Ctrl+C causes. A stand-in that pauses writes a marker file first, and the test stops the run only
-    once it sees it. A case that never reaches its pause fails. Any leftover is removed by unlinking
-    each junction before deleting the directory.
+    Ctrl+C causes. A stand-in that pauses writes a marker file first, and the test stops the run
+    only once it sees it. A case that never reaches its pause fails. Any leftover is removed by
+    unlinking each junction before deleting the directory.
 
     Several cases open a game window for up to a minute. Run it with no other Factorio open, with
     FACTORIO_EXE set to the pinned 2.1.24 install. All cases take about ten minutes.
@@ -39,6 +43,7 @@
 .EXAMPLE
     pwsh -NoProfile -File scripts/tests/probe-runner-cleanup.ps1 -Only setup,throws
 #>
+
 #Requires -Version 7.2
 param([string[]] $Only = @('setup,throws,warnstop,buildown,buildother,normal,keep,stop'))
 Set-StrictMode -Version Latest
@@ -158,9 +163,27 @@ try {
 
     foreach ($case in @('throws', 'warnstop')) {
         if ($case -notin $cases) { continue }
-        Write-Host "--- ${case}: Stop-Process throws$(if ($case -eq 'warnstop') { ", under `$WarningPreference = 'Stop', and the harness can't be removed" })"
+        Write-Host "--- ${case}: the game's kill throws$(if ($case -eq 'warnstop') { ", under `$WarningPreference = 'Stop', and the harness can't be removed" })"
         $before = Get-TempDirs
-        $prelude = 'function Stop-Process { throw "simulated: Stop-Process failed" }'
+        # The runner stops its game with the shared Stop-LaunchedGame (#73), which takes anything
+        # with a Process's HasExited, Id, Kill() and WaitForExit(int). So a Start-Process hands the
+        # runner the game it started inside a stand-in whose Kill() throws, and the game lives on.
+        # A start that waits, as the library's Invoke-Factorio makes the save with, is passed
+        # through: only the runner's own launch does not wait.
+        $prelude = @'
+function Start-Process {
+    [CmdletBinding()] param([string] $FilePath, [string[]] $ArgumentList, [switch] $Wait, [switch] $PassThru,
+        [switch] $NoNewWindow, [string] $RedirectStandardOutput, [string] $RedirectStandardError)
+    if ($Wait) { return Microsoft.PowerShell.Management\Start-Process @PSBoundParameters }
+    $game = [pscustomobject]@{ Real = Microsoft.PowerShell.Management\Start-Process @PSBoundParameters }
+    $game | Add-Member ScriptProperty HasExited { $this.Real.HasExited }
+    $game | Add-Member ScriptProperty Id { $this.Real.Id }
+    $game | Add-Member ScriptProperty ExitCode { $this.Real.ExitCode }
+    $game | Add-Member ScriptMethod Kill { throw 'simulated: the kill failed' }
+    $game | Add-Member ScriptMethod WaitForExit { param([int] $Milliseconds) $this.Real.WaitForExit($Milliseconds) }
+    $game
+}
+'@
         if ($case -eq 'warnstop') {
             # A Remove-Item that leaves load-harness-* alone, so the shared harness's removal warns.
             $prelude = '$WarningPreference = "Stop"; ' + $prelude + @'
@@ -179,7 +202,7 @@ function Remove-Item {
         $lock = Get-LockState
         $ps.Dispose()
         $closed = Close-OwnGames
-        Check ($err -match 'simulated: Stop-Process failed') "the run's own error is reported ($err)"
+        Check ($err -match 'simulated: the kill failed') "the run's own error is reported ($err)"
         Check ($lock -eq 'free') "the lock is free ($lock)"
         $new = @(Get-NewDirs $before)
         Check (-not ($new -like 'tnp-*')) 'the probe-mod copy is removed'
@@ -196,11 +219,22 @@ function Remove-Item {
     # Build stops: a New-Item that writes a marker and pauses at a chosen point of New-LoadHarness.
     # buildown pauses right after this run's own junction (tn-port-probe); buildother pauses instead
     # of making it, so whatever the junction order, the own junction never exists when it stops.
+    # Before it pauses, buildother also makes a decoy harness, new since the run began, whose
+    # tn-port-probe junction points at another probe-mod copy, as another run's would (#85).
+    $decoy = 'load-harness-decoy0'
+    $foreign = Join-Path $marks 'foreign\tn-port-probe'
+    New-Item -ItemType Directory -Force $foreign | Out-Null
+    Set-Content (Join-Path $foreign 'sentinel.txt') 'another run''s probe-mod copy'
     $pauseNewItem = @'
 function New-Item {
-    [CmdletBinding()] param([string] $ItemType, [string] $Path, [object] $Target, [switch] $Force)
+    [CmdletBinding()] param([string] $ItemType, [Parameter(Position = 0)] [string] $Path, [object] $Target, [switch] $Force)
     $own = $ItemType -eq 'Junction' -and (Split-Path $Path -Leaf) -eq 'tn-port-probe'
-    if ($own -and '__MODE__' -eq 'buildother') { Set-Content '__MARK__' 'paused'; Start-Sleep -Seconds 120; return }
+    if ($own -and '__MODE__' -eq 'buildother') {
+        $mods = Join-Path ([IO.Path]::GetTempPath()) '__DECOY__\mods'
+        Microsoft.PowerShell.Management\New-Item -ItemType Directory -Force $mods | Out-Null
+        Microsoft.PowerShell.Management\New-Item -ItemType Junction -Path (Join-Path $mods 'tn-port-probe') -Target '__FOREIGN__' | Out-Null
+        Set-Content '__MARK__' 'paused'; Start-Sleep -Seconds 120; return
+    }
     $r = Microsoft.PowerShell.Management\New-Item @PSBoundParameters
     if ($own -and '__MODE__' -eq 'buildown') { Set-Content '__MARK__' 'paused'; Start-Sleep -Seconds 120 }
     $r
@@ -211,7 +245,8 @@ function New-Item {
         Write-Host "--- ${case}: stopped while the harness is built, $(if ($case -eq 'buildown') { 'after' } else { 'before' }) this run's own junction"
         $mark = Join-Path $marks "$case.paused"
         $before = Get-TempDirs
-        $ps = New-RunnerInstance ($pauseNewItem -replace '__MODE__', $case -replace '__MARK__', $mark) @{ Probe = 'craters' }
+        $prelude = $pauseNewItem -replace '__MODE__', $case -replace '__MARK__', $mark -replace '__DECOY__', $decoy -replace '__FOREIGN__', $foreign
+        $ps = New-RunnerInstance $prelude @{ Probe = 'craters' }
         $async = $ps.BeginInvoke()
         $paused = Wait-Until { Test-Path $mark } 60
         $ps.Stop()
@@ -224,10 +259,13 @@ function New-Item {
         if ($case -eq 'buildown') {
             Check ($new.Count -eq 0) "nothing is left ($($new -join ' '))"
         } else {
-            $harnesses = @($new -like 'load-harness-*')
+            $harnesses = @($new -like 'load-harness-*' | Where-Object { $_ -ne $decoy })
             Check ($harnesses.Count -eq 1) "the harness it can't prove its own is left ($($harnesses -join ' '))"
             Check ($harnesses.Count -eq 1 -and [bool]($warnings -match [regex]::Escape($harnesses[0]))) 'a warning names it'
             Check (-not ($new -like 'tnp-*')) 'the probe-mod copy is removed'
+            $link = Get-Item -LiteralPath (Join-Path $scratch "$decoy\mods\tn-port-probe") -Force -ErrorAction SilentlyContinue
+            Check ($link -and $link.LinkType -eq 'Junction' -and (Test-Path (Join-Path $foreign 'sentinel.txt'))) 'the decoy harness linked to another copy is left as it was'
+            Check ([bool]($warnings -match [regex]::Escape($decoy))) 'a warning names the decoy'
         }
         $new | ForEach-Object { Remove-Leftover $_ }
     }

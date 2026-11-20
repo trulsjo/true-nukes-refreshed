@@ -79,7 +79,8 @@
     the calling shell.
 #>
 
-#Requires -Version 7
+# 7.2 for LinkTarget (.NET 6), which the finally reads under strict mode (#85).
+#Requires -Version 7.2
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)] [string] $Probe,
@@ -181,7 +182,8 @@ try {
             Get-FactorioErrorText -Result $created | Select-Object -First 30 | ForEach-Object { Write-Host $_ }
             throw "--create failed with exit $($created.Code)"
         }
-        # The windowed probes, achieve, achievecheat and everything, start at video-memory-usage=low.
+        # The windowed probes, achieve, achievecheat and everything, start at
+        # video-memory-usage=low.
         # With the default video-memory-usage=all, Factorio 2.1.24 estimates 1737 MB of textures for
         # these mods. On a 6 GB card, a third window open at once stalls after "Parallel sprite
         # loader initialized" and cannot be closed until the others free theirs.
@@ -240,11 +242,10 @@ try {
 }
 finally {
     try {
-        if ($proc -and -not $proc.HasExited) {
-            # The game can exit between the check and Stop-Process, which then throws; that is fine.
-            try { Stop-Process -Id $proc.Id -Force } catch { if (-not $proc.HasExited) { throw } }
-            $proc.WaitForExit()
-        }
+        # The shared Stop-LaunchedGame (#73) kills the game and waits for it to go, two minutes at
+        # most, then warns; a game that exits before the kill is no error. It is given no harness:
+        # that is removed below, after the lock is released.
+        if ($proc) { Stop-LaunchedGame -Process $proc -Label 'port-probe' }
     }
     finally {
         # Released only once the window is closed, so the next windowed run never overlaps this
@@ -272,18 +273,19 @@ finally {
             if (-not $harness -and $null -ne $harnessesBefore) {
                 # Stopped while New-LoadHarness was building the harness, so it never returned it.
                 # A new harness is this run's if it links this run's own probe-mod copy, whose
-                # path no other run shares. One with no probe-mod link yet may belong to a run
-                # from the same checkout still building its own, so it is named, not removed.
+                # path no other run shares. Any other new one, with no probe-mod link yet or a
+                # link to another copy, may belong to another run, so it is named, not removed
+                # (#85).
                 $ownLink = (Join-Path $probeCopy 'tn-port-probe').TrimEnd('\')
                 $new = @(Get-ChildItem ([IO.Path]::GetTempPath()) -Directory -Filter 'load-harness-*' -ErrorAction SilentlyContinue |
                     Where-Object Name -notin $harnessesBefore)
                 foreach ($dir in $new) {
                     $link = Get-Item -LiteralPath (Join-Path $dir.FullName 'mods\tn-port-probe') -Force -ErrorAction SilentlyContinue
-                    if (-not $link) {
-                        Write-Warning -WarningAction Continue "a load harness may be left at $($dir.FullName); unlink the junctions in its mods folder with rmdir before deleting it"
-                    }
-                    elseif ($link.LinkType -eq 'Junction' -and "$($link.LinkTarget)".TrimEnd('\') -eq $ownLink) {
+                    if ($link -and $link.LinkType -eq 'Junction' -and "$($link.LinkTarget)".TrimEnd('\') -eq $ownLink) {
                         $harness = [pscustomobject]@{ Temp = $dir.FullName; ModDirectory = Join-Path $dir.FullName 'mods' }
+                    }
+                    else {
+                        Write-Warning -WarningAction Continue "a load harness may be left at $($dir.FullName); unlink the junctions in its mods folder with rmdir before deleting it"
                     }
                 }
             }
