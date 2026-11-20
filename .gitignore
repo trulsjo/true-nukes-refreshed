@@ -9,3 +9,7 @@
 
 # Personal Claude Code settings; the shared ones are .claude/settings.json.
 .claude/settings.local.json
+
+# Where the shared hang guard, refuse-hanging-bash.ps1 under vendor/grado-factorio-tools/scripts/,
+# logs each command it refuses.
+/.claude/refused-bash.log

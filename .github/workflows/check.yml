@@ -1,8 +1,9 @@
 # The checks that need no game (#69, from trulsjo/grado-factorio-tools#320): the commit messages,
-# the mode of each .githooks/ file, and the three checks of the four scripts scripts/load-check.ps1
-# runs before it starts Factorio. The fourth, the test scripts/tests/harness-lib.ps1, reads an
-# install's data folder. It needs an install, and the load check itself and the port probes need
-# the game, so they run only where a person starts them (docs/agents/checks.md).
+# the mode of each .githooks/ file, the self-tests of the session hooks .claude/settings.json wires
+# (#71), and the three checks of the four scripts scripts/load-check.ps1 runs before it starts
+# Factorio. The fourth, the test scripts/tests/harness-lib.ps1, reads an install's data folder. It
+# needs an install, and the load check itself and the port probes need the game, so they run only
+# where a person starts them (docs/agents/checks.md).
 # scripts/tests/ci-steps.ps1 holds the split: each script load-check.ps1 runs before the game is a
 # step here or on its list of scripts CI cannot run.
 #
@@ -72,6 +73,26 @@ jobs:
         if: ${{ !cancelled() }}
         shell: pwsh
         run: pwsh -NoProfile -File scripts/tests/script-help.ps1
+
+      # The session hooks .claude/settings.json wires from vendor/ (#71) refuse or warn in an agent
+      # session and check nothing here, so their self-tests are the one place a change that breaks
+      # one goes red. Each runs the command that file wires for it, so a wired command that no
+      # longer reaches its script fails; the hanging-Bash one also fails where git does not ignore
+      # its refusal log, .claude/refused-bash.log. The same step as realistic-fusion-refreshed's.
+      - name: Session hooks' -SelfTest -Settings .claude/settings.json
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: |
+          $failed = @()
+          foreach ($hook in 'ask-before-download', 'refuse-python-heredoc',
+                  'refuse-backtick-substitution', 'refuse-hanging-bash', 'refuse-git-hook-skip',
+                  'refuse-git-discard', 'refuse-pr-body', 'warn-skipped-install') {
+            Write-Host "::group::$hook"
+            pwsh -NoProfile -File "vendor/grado-factorio-tools/scripts/$hook.ps1" -SelfTest -Settings .claude/settings.json
+            if ($LASTEXITCODE -ne 0) { $failed += $hook; Write-Host "::error::$hook failed" }
+            Write-Host '::endgroup::'
+          }
+          if ($failed) { exit 1 }
 
       # Each script load-check.ps1 runs before the game is a step above, or on ci-steps.ps1's list
       # of those CI cannot run.

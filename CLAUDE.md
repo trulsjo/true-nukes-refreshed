@@ -158,6 +158,12 @@ choosing between them is not.
   per-repo — do not change it.
 - `CLAUDE.local.md` is personal and kept out of git by `.git/info/exclude`. Never commit it, and
   never move its contents into a tracked file.
+- **Ask Truls before a session downloads a program and runs it on this machine** (#71), and say
+  the same in a brief written for a subagent.
+  [`ask-before-download.ps1`](vendor/grado-factorio-tools/scripts/ask-before-download.ps1), the
+  shared script in the pin, is a hook in `.claude/settings.json` that refuses a package install or
+  a fetched program, which Truls then runs with `!` after saying yes; its header says what it
+  cannot see. It is one of eight session hooks that file wires from `vendor/`.
 - **Cite our own code by symbol, never by line number** — the function, field, constant or
   prototype, with a repo-relative path. Ancestor, vanilla and third-party citations keep their line
   numbers.
