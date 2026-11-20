@@ -13,11 +13,17 @@
     stops it if three of the shared library's functions, New-LoadHarness, Write-HarnessModList
     and Remove-LoadHarness, do not build, list and remove a harness for the three mods.
 
+    On the loaded game, tests/missing-assets.ps1 then fails if a .png or .ogg the prototypes name
+    is not on disk, by the shared Find-MissingAssets, before any -Check given here. After the load,
+    the shared locale-check.ps1 -Prefix TN-, with a load of its own, fails if a prototype of the
+    mods' own would show a player something other than its name (#73).
+
 .PARAMETER FactorioExe
     Path to factorio.exe. Defaults to the harness's own lookup: $env:FACTORIO_EXE, then Steam.
 
 .PARAMETER Check
-    A script to run on the loaded game, as load-harness.ps1 -Check describes.
+    A script to run on the loaded game, as load-harness.ps1 -Check describes. It runs after
+    tests/missing-assets.ps1, which calls it.
 
 .PARAMETER KeepTemp
     Keep the harness's temp directory, with the save and the captured output.
@@ -52,9 +58,18 @@ if ($LASTEXITCODE) { exit $LASTEXITCODE }
 $mods = @('true-nukes-refreshed', 'warheads-refreshed', 'true-nukes-graphics-refreshed') |
     ForEach-Object { Join-Path $root $_ }
 
-$arguments = @{}
+$arguments = @{ Check = Join-Path $PSScriptRoot 'tests/missing-assets.ps1' }
 if ($FactorioExe) { $arguments.FactorioExe = $FactorioExe }
-if ($Check) { $arguments.Check = $Check }
 if ($KeepTemp) { $arguments.KeepTemp = $true }
-& $harness @arguments -Mods $mods
+# The harness runs one -Check, missing-assets.ps1, which calls the caller's after its own.
+$env:TN_LOAD_CHECK_THEN = if ($Check) { (Resolve-Path -LiteralPath $Check).Path } else { '' }
+try { & $harness @arguments -Mods $mods }
+finally { Remove-Item Env:TN_LOAD_CHECK_THEN -ErrorAction SilentlyContinue }
+if ($LASTEXITCODE) { exit $LASTEXITCODE }
+
+# In a pwsh of its own: called with &, it would run under this script's strict mode, which it does
+# not set, and a read it makes of a property a dump may lack throws there.
+$localeArguments = @('-Prefix', 'TN-')
+if ($FactorioExe) { $localeArguments += '-FactorioExe', $FactorioExe }
+pwsh -NoProfile -File (Join-Path $root 'vendor/grado-factorio-tools/scripts/locale-check.ps1') @localeArguments @mods
 exit $LASTEXITCODE

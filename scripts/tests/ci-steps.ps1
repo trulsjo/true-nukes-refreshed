@@ -36,6 +36,7 @@
 .EXAMPLE
     pwsh -NoProfile -File scripts/tests/ci-steps.ps1
 #>
+
 #Requires -Version 7
 [CmdletBinding()]
 param(
@@ -46,10 +47,12 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# The scripts load-check.ps1 runs before the game that CI cannot, and why. A new one goes here with
-# its reason, and docs/agents/checks.md's intro says so.
+# The scripts load-check.ps1 names that CI cannot run, and why. A new one goes here with its
+# reason, and docs/agents/checks.md's intro says so. missing-assets.ps1 is named as the harness's
+# -Check, so it runs on the loaded game, not before it; it is read as the others are (#73).
 $except = @{
-    'harness-lib.ps1' = "reads a game install's data folder"
+    'harness-lib.ps1'    = "reads a game install's data folder"
+    'missing-assets.ps1' = 'runs on the loaded game, as the harness''s -Check'
 }
 
 foreach ($file in $LoadCheck, $Workflow) {

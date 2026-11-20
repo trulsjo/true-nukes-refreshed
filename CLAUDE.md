@@ -57,7 +57,8 @@ delete follows: unlink each junction in its `mods` folder with `rmdir <link>` in
 - **`pwsh -NoProfile -File scripts/port-probe.ps1 -Probe <name>`** runs one in-game probe; it passes
   on `PROBE RESULT PASS`. `achieve`, `achievecheat` and `everything` open a game window and take
   `-TestTicks 60000`; `docs/agents/checks.md` says why.
-- **`scripts/freeze-time.ps1`** times a 15 kt blast's freeze on 2.0 against 2.1, and **takes hours**.
+- **`scripts/freeze-time.ps1`** times a 15 kt blast's freeze on 2.0 against 2.1, and **takes
+  hours**.
 
 **Before running, changing or adding a check, read `docs/agents/checks.md`:** each script's options
 and tests, the probes, windowed runs and their lock, temp directories, and data-stage stubs.
@@ -85,14 +86,14 @@ new decision:
   `true-nukes-refreshed/prototypes/nukes/data-nukes-technology.lua` and
   `data-nukes-warheads-create.lua` beside it, and a straight fix makes the default delete
   `atomic-bomb`, which would vanish from saves silently.
-- **`nuke-self`:** left unchanged. `nukedSelf` (`true-nukes-refreshed/scripts/achievement-system.lua`)
-  is called from `full_fireball` and `partial_fireball`
-  (`true-nukes-refreshed/scripts/fireball-system.lua`), so the spec's "nothing calls it" was wrong.
-  Whether a real blast unlocks it has not been measured.
+- **`nuke-self`:** left unchanged. `nukedSelf`
+  (`true-nukes-refreshed/scripts/achievement-system.lua`) is called from `full_fireball` and
+  `partial_fireball` (`true-nukes-refreshed/scripts/fireball-system.lua`), so the spec's "nothing
+  calls it" was wrong. Whether a real blast unlocks it has not been measured.
 - **Menu simulations** (`true-nukes-refreshed/menu-simulations/`), including the dead
   `enable-menu-backgrounds` setting.
-- **Birdshot** (`shotgun-shell-birdshot` in `warheads-refreshed/prototypes/basegame-weapontype-add.lua`):
-  no base-game warhead fits it.
+- **Birdshot** (`shotgun-shell-birdshot` in
+  `warheads-refreshed/prototypes/basegame-weapontype-add.lua`): no base-game warhead fits it.
 - **The stray `1`** in the detonation recipe's `test-pack` result, in
   `true-nukes-refreshed/prototypes/nukes/data-nukes-buildings.lua`.
 - **`on_init` in `true-nukes-refreshed/MushroomCloudInBuilt/control.lua`**, overwritten by the
@@ -207,7 +208,11 @@ git config core.hooksPath .githooks
 Skipping either step is loud rather than silent: the hook says the message was not checked and
 lets the commit through. `commit-check.ps1 -Range origin/main..HEAD` checks a branch's commits.
 
-**The same opt-in installs three more hooks** (#72): `.githooks/post-checkout`, `post-merge` and
+**The same opt-in installs `.githooks/pre-commit`** (#73), which holds each file a commit stages,
+whole, to the shared checks its header lists: the Markdown check and the comment-line check at 100
+characters, and four lints of a script. Staging an old file holds all of it to them.
+
+**It also installs three more hooks** (#72): `.githooks/post-checkout`, `post-merge` and
 `post-rewrite` run the shared
 [`follow-pin.ps1`](vendor/grado-factorio-tools/scripts/follow-pin.ps1) after a branch checkout, a
 merge and a rebase. Where the pin changed, it brings `vendor/grado-factorio-tools` to the one the
@@ -218,13 +223,19 @@ prints why not and the command to run. A file checkout and an amend are never ac
 
 **[grado-factorio-tools](https://github.com/trulsjo/grado-factorio-tools) is a pinned submodule at
 `vendor/grado-factorio-tools`** (added 2026-10-31 at `36b34f7`), as in the other mod projects.
-Two of its tools are wired in: the commit check, through the `commit-msg` hook above, and the load
-harness, which `scripts/load-check.ps1`, `scripts/port-probe.ps1` and `scripts/freeze-time.ps1`
-use (see *Checks*). It also has the third-party mod-set fetcher, the packer that builds the
-distributable zips, the locale check and the Markdown check; those stay out for now (#8), and
-wiring them in is Truls's call, and `realistic-fusion-refreshed` (a sibling directory) shows how a project wires
-them. Bumping the pin is a deliberate commit, so a change in the tools cannot alter this repo's
-checks until this repo opts in.
+Wired in from it:
+
+- the commit check, through the `commit-msg` hook above, and the follow-pin hooks beside it (#72);
+- the session hooks `.claude/settings.json` registers (#71);
+- the Markdown check, the comment-line check and four lints of a script, which
+  `.githooks/pre-commit` runs on what a commit stages (#73);
+- the citation checks and the pull request body check, which `check.yml` runs (#73);
+- the load harness and its helpers, which `scripts/load-check.ps1`, `scripts/port-probe.ps1` and
+  `scripts/freeze-time.ps1` use, and the locale check, which `load-check.ps1` runs (see *Checks*).
+
+It also has the third-party mod-set fetcher and the packer that builds the distributable zips;
+those stay out for now (#8), and wiring them in is Truls's call. Bumping the pin is a deliberate
+commit, so a change in the tools cannot alter this repo's checks until this repo opts in.
 
 ## Agent skills
 

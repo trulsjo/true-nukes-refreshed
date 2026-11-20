@@ -1,11 +1,11 @@
 # The checks that need no game (#69, from trulsjo/grado-factorio-tools#320): the commit messages,
-# the mode of each .githooks/ file, the self-tests of the session hooks .claude/settings.json wires
-# (#71), and the three checks of the four scripts scripts/load-check.ps1 runs before it starts
-# Factorio. The fourth, the test scripts/tests/harness-lib.ps1, reads an install's data folder. It
-# needs an install, and the load check itself and the port probes need the game, so they run only
-# where a person starts them (docs/agents/checks.md).
-# scripts/tests/ci-steps.ps1 holds the split: each script load-check.ps1 runs before the game is a
-# step here or on its list of scripts CI cannot run.
+# the mode of each .githooks/ file, the citations by line number and of commits off main (#73), the
+# self-tests of the session hooks .claude/settings.json wires (#71), and the three checks of the
+# four scripts scripts/load-check.ps1 runs before it starts Factorio. The fourth, the test
+# scripts/tests/harness-lib.ps1, reads an install's data folder. It needs an install, and the load
+# check itself and the port probes need the game, so they run only where a person starts them
+# (docs/agents/checks.md). scripts/tests/ci-steps.ps1 holds the split: each script load-check.ps1
+# runs before the game is a step here or on its list of scripts CI cannot run.
 #
 # The range is realistic-fusion-refreshed's gates.yml's: a pull request's base.sha..head.sha, and
 # on a push to main the commits that push brought, since sessions commit to main directly. Neither
@@ -16,6 +16,8 @@
 # Windows, because that is where every one of these scripts has passed, and asset-paths.ps1 finds a
 # file whose name differs only in case there, as the game on Windows does.
 #
+# A second job checks a pull request's body (#73); its comment says how.
+#
 # Advisory: main has no branch protection, so a red check blocks nothing.
 name: check
 
@@ -23,13 +25,35 @@ on:
   push:
     branches: [main]
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, edited, synchronize, reopened]
 
 permissions:
   contents: read
 
 jobs:
+  # The pull request's body, by the shared pr-body-check.ps1 with its default rules (#73): the pr
+  # template's three headings and their markers, no commit cited that is not on main, and no
+  # closing keyword outside a lone `Closes #N` line. `edited` is among the triggers so an edited
+  # body is checked again, and the other job skips that event, so a body edit runs this alone. The
+  # body reaches the script through the environment, never pasted into the command. The script
+  # refuses a shallow clone. realistic-fusion-refreshed's gates.yml has the same job.
+  body:
+    name: Pull request body
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: true
+          fetch-depth: 0 # the check tells a commit on main from one that is not
+      - name: pr-body-check.ps1
+        shell: pwsh
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: ./vendor/grado-factorio-tools/scripts/pr-body-check.ps1 -Body "$env:PR_BODY"
+
   check:
+    if: github.event.action != 'edited'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -73,6 +97,24 @@ jobs:
         if: ${{ !cancelled() }}
         shell: pwsh
         run: pwsh -NoProfile -File scripts/tests/script-help.ps1
+
+      # A citation of this repository's own files by line number, which goes stale silently
+      # (CLAUDE.md, Conventions), by the shared line-cite-check.ps1 over every tracked file (#73).
+      # -Foreign passes a line quoting the game's own Lua error, `<file>.lua:<n>: attempt to ...`,
+      # which names the line the game ran: before it, the one finding in the tree was such a
+      # quote, in docs/research/2-1-api-changes.md. The floor is below the 3 path-and-line
+      # citations the tree held then, so a matcher that stopped matching fails.
+      - name: line-cite-check.ps1
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: ./vendor/grado-factorio-tools/scripts/line-cite-check.ps1 -Foreign '\.lua:\d+: attempt to ' -MinCitations 2
+
+      # Each word of a tracked file that names a commit here names one origin/main reaches, so no
+      # file cites a branch commit a rebase-merge rewrites (#73).
+      - name: cited-commit-check.ps1
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: ./vendor/grado-factorio-tools/scripts/cited-commit-check.ps1
 
       # The session hooks .claude/settings.json wires from vendor/ (#71) refuse or warn in an agent
       # session and check nothing here, so their self-tests are the one place a change that breaks
