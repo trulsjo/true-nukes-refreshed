@@ -114,8 +114,9 @@ minute, because headless runs never report achievements.
 **Temp directories.** However a run ends, it removes its probe-mod copy (`tnp-*`), and it removes
 its load harness (`load-harness-*`) too unless `-KeepTemp` keeps it. The exceptions, as the runner's
 help also says: a game the runner could not close keeps its harness directory, with its junctions
-removed and a warning naming it; and a run stopped mid-build before its own junction exists names
-the harness it may have left (#61, #62).
+removed and a warning naming it; and a run stopped mid-build names, without removing, each new
+harness that does not link its own probe-mod copy, whether it has no link yet or one to another
+run's copy (#61, #62, #85).
 
 **Its test.** `pwsh -NoProfile -File scripts/tests/probe-runner-cleanup.ps1` checks those temp
 directories and the windowed lock however a run ends: a setup failure, an error closing the window,
@@ -149,9 +150,9 @@ Times a 15 kt blast's freeze on 2.0 with Continued against 2.1 with these mods (
 - Its wall times hold only on a machine with no other Factorio running and memory to spare. On #33
   each slowed a session without a sign in the log.
 - Each session removes its timer-mod copy (`tnf-*`) and its load harness (`load-harness-*`)
-  however it ends, as its help says (#63). It keeps the probe runner's exceptions, and also names,
-  without removing, a new harness linked to another run's timer copy, which the probe runner leaves
-  unnamed. It needs pwsh 7.2.
+  however it ends, as its help says (#63). It keeps the probe runner's exceptions: a new harness
+  linked to another run's timer copy is named, not removed, as the probe runner names one linked to
+  another probe-mod copy. It needs pwsh 7.2.
   `pwsh -NoProfile -File scripts/tests/freeze-time-cleanup.ps1` checks that with stand-ins: a setup
   failure, an error after the harness is built, a removal that fails under
   `$WarningPreference = 'Stop'`, and a stop mid-build on either side of the session's own junction.

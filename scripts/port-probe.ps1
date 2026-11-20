@@ -37,8 +37,9 @@
     ends. The one exception is a game the runner could not close: it still holds files in its
     harness directory, so that directory stays, with its junctions removed and a warning
     ("load-harness: could not remove temp directory ...") naming it. A run stopped while its
-    harness is being built removes it too, unless the harness has no link to this run's
-    probe-mod copy yet; then it only warns where a harness may be left.
+    harness is being built removes it too, where a new harness links this run's own probe-mod
+    copy. A new harness with no probe-mod link yet, or one linked to another run's copy, it only
+    names in a warning, as a harness that may be left (#85).
 
     A windowed run whose deadline passes with no PROBE RESULT line prints TIMEOUT, how long it
     waited, the last PROBE line (or that the game printed none), and how many other factorio.exe
