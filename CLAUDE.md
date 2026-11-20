@@ -187,8 +187,9 @@ the version this repository's pin checks. If the submodule is not initialised, r
 <https://github.com/trulsjo/grado-factorio-tools/blob/main/docs/commit-convention.md>, but that
 shows `main`, which may be ahead of the pin. This repository's own parts:
 
-- **Scope vocabulary:** the mod (`nukes`, `warheads`, `graphics`) or the area (`data`, `runtime`,
-  `settings`, `locale`, `compat`, `repo`).
+- **Scope vocabulary:** the mod a change is to, or the area it is in. The scopes are
+  [`commit-scopes.txt`](commit-scopes.txt), which the hook below hands the check as `-ScopeFile`,
+  so a scope it does not list is refused.
 - **What counts as a breaking change:** anything that breaks an existing save or another mod's use
   of `Warheads`. Save compatibility breaks silently.
 - **What a body names:** the Factorio API version when a change depends on one, and the author and
@@ -205,6 +206,13 @@ git config core.hooksPath .githooks
 
 Skipping either step is loud rather than silent: the hook says the message was not checked and
 lets the commit through. `commit-check.ps1 -Range origin/main..HEAD` checks a branch's commits.
+
+**The same opt-in installs three more hooks** (#72): `.githooks/post-checkout`, `post-merge` and
+`post-rewrite` run the shared
+[`follow-pin.ps1`](vendor/grado-factorio-tools/scripts/follow-pin.ps1) after a branch checkout, a
+merge and a rebase. Where the pin changed, it brings `vendor/grado-factorio-tools` to the one the
+new `HEAD` records if the submodule is initialised, clean and still at the old pin, and otherwise
+prints why not and the command to run. A file checkout and an amend are never acted on.
 
 ## Shared tooling
 

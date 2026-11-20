@@ -1,0 +1,15 @@
+#!/bin/sh
+# Brings vendor/grado-factorio-tools to the pin the new HEAD records.
+hook=post-rewrite
+[ "$1" = rebase ] || exit 0
+sub=vendor/grado-factorio-tools
+f=$sub/scripts/follow-pin.ps1
+say() {
+    echo "$hook: $1 not found, so $sub was not checked against the pin HEAD records." >&2
+    echo "$hook: if it is clean and holds no commit of your own, '$2' brings it there." >&2
+}
+if ! command -v pwsh >/dev/null 2>&1; then say pwsh "git submodule update --init -- $sub"
+elif [ ! -f "$f" ]; then say "$f" "git submodule update --init -- $sub"
+else pwsh -NoProfile -File "$f" "$hook" "$@"
+fi
+exit 0

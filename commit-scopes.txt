@@ -1,0 +1,21 @@
+# The scopes a commit subject here may name, one to a line: the three mods, then the areas.
+# .githooks/commit-msg and check.yml's commit check hand this file to the shared commit check as
+# -ScopeFile, which rejects a scope it does not list. What a scope is: CLAUDE.md, Commit messages.
+#
+# Proposed for #72 as the union of the scopes this repository's history used and the nine
+# CLAUDE.md then named. History read on main at eae30b7, 2026-11-20, with
+#
+#     git log --format=%s | grep -oP '^\S+ \w+\(\K[^)]+' | sort | uniq -c | sort -rn
+#
+# which printed repo 117, nukes 17, warheads 6, runtime 2. graphics, data, settings, locale and
+# compat had no subject yet and come from CLAUDE.md alone. Truls prunes the list on #72's pull
+# request.
+nukes
+warheads
+graphics
+data
+runtime
+settings
+locale
+compat
+repo
