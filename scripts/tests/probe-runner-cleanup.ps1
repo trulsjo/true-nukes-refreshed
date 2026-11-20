@@ -264,7 +264,10 @@ function New-Item {
             Check ($harnesses.Count -eq 1 -and [bool]($warnings -match [regex]::Escape($harnesses[0]))) 'a warning names it'
             Check (-not ($new -like 'tnp-*')) 'the probe-mod copy is removed'
             $link = Get-Item -LiteralPath (Join-Path $scratch "$decoy\mods\tn-port-probe") -Force -ErrorAction SilentlyContinue
-            Check ($link -and $link.LinkType -eq 'Junction' -and (Test-Path (Join-Path $foreign 'sentinel.txt'))) 'the decoy harness linked to another copy is left as it was'
+            # Its target, and the sentinel read through it, so a junction moved elsewhere fails.
+            $kept = $link -and $link.LinkType -eq 'Junction' -and "$($link.LinkTarget)".TrimEnd('\') -eq $foreign.TrimEnd('\') -and
+                (Test-Path -LiteralPath (Join-Path $link.FullName 'sentinel.txt'))
+            Check $kept 'the decoy harness linked to another copy is left as it was'
             Check ([bool]($warnings -match [regex]::Escape($decoy))) 'a warning names the decoy'
         }
         $new | ForEach-Object { Remove-Leftover $_ }
