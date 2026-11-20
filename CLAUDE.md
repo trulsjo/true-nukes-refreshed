@@ -235,7 +235,8 @@ Wired in from it:
 - the session hooks `.claude/settings.json` registers (#71);
 - the Markdown check, the comment-line check and four lints of a script, which
   `.githooks/pre-commit` runs on what a commit stages (#73);
-- the citation checks and the pull request body check, which `check.yml` runs (#73);
+- the citation checks, which `check.yml` runs, and the pull request body check, which `body.yml`
+  runs (#73);
 - the load harness and its helpers, which `scripts/load-check.ps1`, `scripts/port-probe.ps1` and
   `scripts/freeze-time.ps1` use, and the locale check, which `load-check.ps1` runs (see *Checks*).
 

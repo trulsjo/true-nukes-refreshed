@@ -16,7 +16,7 @@
 # Windows, because that is where every one of these scripts has passed, and asset-paths.ps1 finds a
 # file whose name differs only in case there, as the game on Windows does.
 #
-# A second job checks a pull request's body (#73); its comment says how.
+# A pull request's body is checked by body.yml beside this (#73).
 #
 # Advisory: main has no branch protection, so a red check blocks nothing.
 name: check
@@ -25,35 +25,13 @@ on:
   push:
     branches: [main]
   pull_request:
-    types: [opened, edited, synchronize, reopened]
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: read
 
 jobs:
-  # The pull request's body, by the shared pr-body-check.ps1 with its default rules (#73): the pr
-  # template's three headings and their markers, no commit cited that is not on main, and no
-  # closing keyword outside a lone `Closes #N` line. `edited` is among the triggers so an edited
-  # body is checked again, and the other job skips that event, so a body edit runs this alone. The
-  # body reaches the script through the environment, never pasted into the command. The script
-  # refuses a shallow clone. realistic-fusion-refreshed's gates.yml has the same job.
-  body:
-    name: Pull request body
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          submodules: true
-          fetch-depth: 0 # the check tells a commit on main from one that is not
-      - name: pr-body-check.ps1
-        shell: pwsh
-        env:
-          PR_BODY: ${{ github.event.pull_request.body }}
-        run: ./vendor/grado-factorio-tools/scripts/pr-body-check.ps1 -Body "$env:PR_BODY"
-
   check:
-    if: github.event.action != 'edited'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

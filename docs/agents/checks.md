@@ -19,8 +19,9 @@ up for review without one.
 the commit check, the mode of each `.githooks/` file, the shared `line-cite-check.ps1` and
 `cited-commit-check.ps1`, the self-test of each session hook `.claude/settings.json` wires from
 `vendor/` against that file, and three of the four scripts `load-check.ps1` runs before the game:
-the three checks, not the test. A second job checks a pull request's body with the shared
-`pr-body-check.ps1`, again whenever the body is edited. A script added to those
+the three checks, not the test. `.github/workflows/body.yml` checks a pull request's body with the
+shared `pr-body-check.ps1`, again whenever the body is edited, in a workflow of its own so that an
+edit runs no skipped `check` job in front of the last real one. A script added to those
 `load-check.ps1` runs before the game, check or test, gets a step there too, unless it needs a game
 install, as the test `scripts/tests/harness-lib.ps1` does for the install's data folder.
 `scripts/tests/ci-steps.ps1`, a step itself, holds that: it fails on a script `load-check.ps1` runs
