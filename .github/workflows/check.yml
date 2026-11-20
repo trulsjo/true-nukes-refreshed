@@ -47,7 +47,7 @@ jobs:
           REQUIRE: ${{ github.event_name == 'pull_request' }}
         run: |
           $require = @{ RequireCommits = $env:REQUIRE -eq 'true' }
-          & ./vendor/grado-factorio-tools/scripts/commit-check.ps1 -Range $env:RANGE @require
+          & ./vendor/grado-factorio-tools/scripts/commit-check.ps1 -Range $env:RANGE @require -ScopeFile commit-scopes.txt
 
       # Off Windows git runs a hook only if its mode is 100755, and skips it silently otherwise.
       - name: Hold every .githooks/ file to mode 100755
