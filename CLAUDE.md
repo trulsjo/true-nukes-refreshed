@@ -121,15 +121,17 @@ choosing between them is not.
 
 ## Factorio specifics
 
-- Mods are **Lua**. The API has **three stages**: `settings` and `prototype` run at start-up,
-  `runtime` runs during gameplay. Know which stage code belongs to before writing it.
-- API docs are published **per game version** at <https://lua-api.factorio.com/>. Check claims
-  against the version being targeted rather than from memory. The original is **1.1**, Continued is
-  **2.0**, and this project targets **2.1**, so two version breaks run through the code.
-- `/stable/` and `/latest/` move, and `latest` is the **experimental** build. Pin an explicit
-  version (for example `/2.1.23/`) when recording a fact.
-- The 1.1 → 2.0 port is "mostly" done according to Truls. Where Continued still carries 1.1-era
-  code, diff the 1.1 and 2.0 API pages for the call rather than guessing.
+**Check the game's facts, never remember them:** the stages, the installed build, the per-build API
+docs and the pinned build a recorded fact names are on
+[`factorio-facts.md`](vendor/grado-factorio-tools/docs/factorio-facts.md), in the tools submodule
+at its pin
+([on GitHub](https://github.com/trulsjo/grado-factorio-tools/blob/main/docs/factorio-facts.md),
+whose `main` may be ahead of the pin) (#74). This repository's own:
+
+- **Two version breaks run through the code**: the original is **1.1**, Continued is **2.0**, and
+  this project targets **2.1**. The 1.1 → 2.0 port is "mostly" done according to Truls. Where
+  Continued still carries 1.1-era code, diff the 1.1 and 2.0 API pages for the call rather than
+  guessing.
 
 ## Upstream material
 
@@ -167,7 +169,10 @@ choosing between them is not.
   cannot see. It is one of eight session hooks that file wires from `vendor/`.
 - **Cite our own code by symbol, never by line number** — the function, field, constant or
   prototype, with a repo-relative path. Ancestor, vanilla and third-party citations keep their line
-  numbers.
+  numbers. The reason and the rule in full are
+  [`writing-agent-docs.md`](vendor/grado-factorio-tools/docs/writing-agent-docs.md)'s *Cite our own
+  code by symbol, never by line number*, and `check.yml`'s `line-cite-check.ps1` fails a citation of
+  our own files by line (#73, #74).
 
 ## Commit messages
 
@@ -242,9 +247,17 @@ commit, so a change in the tools cannot alter this repo's checks until this repo
 ### Issue tracker
 
 GitHub Issues on `trulsjo/true-nukes-refreshed` (a fork; Issues turned on 2026-10-31), via the
-`gh` CLI. See `docs/agents/issue-tracker.md`. Read a ticket with that page's *Read an issue*
+`gh` CLI. See `docs/agents/issue-tracker.md`, a stub of the shared
+[`tracker-conventions.md`](vendor/grado-factorio-tools/docs/tracker-conventions.md)
+([on GitHub](https://github.com/trulsjo/grado-factorio-tools/blob/main/docs/tracker-conventions.md),
+whose `main` may be ahead of the pin) (#74). Read a ticket with that page's *Read an issue*
 command, which fetches its comments: a triage brief carrying Truls's decisions is in a comment where
 the ticket has one.
+
+### Code review
+
+**Load `docs/agents/code-review.md` before running a review**: this repository's values for the
+shared review procedure, and its threshold (#74).
 
 ### Triage labels
 
