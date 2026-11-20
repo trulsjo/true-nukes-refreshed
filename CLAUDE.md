@@ -211,7 +211,8 @@ git config core.hooksPath .githooks
 ```
 
 Skipping either step is loud rather than silent: the hook says the message was not checked and
-lets the commit through. `commit-check.ps1 -Range origin/main..HEAD` checks a branch's commits.
+lets the commit through. `commit-check.ps1 -Range origin/main..HEAD -ScopeFile commit-scopes.txt`
+checks a branch's commits as the hook and CI do; without `-ScopeFile` it passes any scope.
 
 **The same opt-in installs `.githooks/pre-commit`** (#73), which holds each file a commit stages,
 whole, to the shared checks its header lists: the Markdown check and the comment-line check at 100
