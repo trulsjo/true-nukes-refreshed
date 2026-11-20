@@ -1,0 +1,35 @@
+# The pull request's body, by the shared pr-body-check.ps1 with its default rules (#73): the pr
+# template's three headings and their markers, no commit cited that is not on main, and no closing
+# keyword outside a lone `Closes #N` line. `edited` is among the triggers so an edited body is
+# checked again. The body reaches the script through the environment, never pasted into the
+# command. The script refuses a shallow clone. realistic-fusion-refreshed's gates.yml has the same
+# job.
+#
+# A workflow of its own, not a job of check.yml: there, an edit started a run on the same head with
+# check.yml's own job skipped, and `gh pr checks` then showed `check` as skipping in place of the
+# green run before it (PR #91's review, finding K).
+#
+# Advisory: main has no branch protection, so a red check blocks nothing.
+name: body
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  body:
+    name: Pull request body
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: true
+          fetch-depth: 0 # the check tells a commit on main from one that is not
+      - name: pr-body-check.ps1
+        shell: pwsh
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: ./vendor/grado-factorio-tools/scripts/pr-body-check.ps1 -Body "$env:PR_BODY"

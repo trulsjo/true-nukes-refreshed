@@ -37,7 +37,7 @@ parts (#74).
   `pr-body-check.ps1`; and a `gh pr comment`, `gh issue create` or `gh issue comment` whose body
   file names no file or fails `markdown-check.ps1 -Body`, where an inline body is let through. Its
   header lists each case.
-  `.github/workflows/check.yml` checks the body of each pull request again, and again when it is
+  `.github/workflows/body.yml` checks the body of each pull request again, and again when it is
   edited (#73).
 - **Read an issue**, not with `--comments`, for the shared page's reason:
 
