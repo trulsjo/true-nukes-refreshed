@@ -30,11 +30,15 @@ parts (#74).
   tickets are created. **Run the POST with the Bash tool**: a `Bash(...)` rule in the tracked
   `.claude/settings.json` allows it there, for a ticket of this repository,
   `grado-factorio-modpack`, `grado-factorio-tools` or `realistic-fusion-refreshed`.
-- **Pull request body**: the shared page's four rules, with no switch turned on here, above them
-  one `Closes #<n>` line for each ticket the branch resolves. The shared `refuse-pr-body.ps1`, a
-  hook in `.claude/settings.json` (#71), refuses a `gh pr create` or `gh pr edit` whose body file
-  fails `pr-body-check.ps1`, and `.github/workflows/check.yml` checks the body of each pull request
-  again, and again when it is edited (#73).
+- **Pull request body**: the shared page's four rules, with no switch turned on here, and above
+  the template's headings one `Closes #<n>` line for each ticket the branch resolves. The shared
+  `refuse-pr-body.ps1`, a hook in `.claude/settings.json` (#71), refuses a `gh pr create` or
+  `gh pr edit` with an inline body, a create with no body file, and one whose body file fails
+  `pr-body-check.ps1`; and a `gh pr comment`, `gh issue create` or `gh issue comment` whose body
+  file names no file or fails `markdown-check.ps1 -Body`, where an inline body is let through. Its
+  header lists each case.
+  `.github/workflows/check.yml` checks the body of each pull request again, and again when it is
+  edited (#73).
 - **Read an issue**, not with `--comments`, for the shared page's reason:
 
   ```sh
@@ -47,10 +51,11 @@ parts (#74).
   gh pr view <number> --json "title,body,comments" --jq '{title, body, comments: [.comments[].body]}'
   ```
 
-- **List issues**, with appropriate `--label` and `--state` filters:
+- **List issues**, with appropriate `--label` and `--state` filters, and `--limit`, since `gh`
+  fetches 30 without it, as the shared page's *Search the open issues before filing* says:
 
   ```sh
-  gh issue list --state open --json "number,title,body,labels,comments" --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'
+  gh issue list --state open --limit 500 --json "number,title,body,labels,comments" --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'
   ```
 
 - **Comment on an issue**: `gh issue comment <number> --body "..."`, or `--body-file <path>` for
@@ -111,5 +116,5 @@ Used by `/wayfinder`. The **map** is a single issue with **child** issues as tic
   (`issue_dependencies_summary.blocked_by > 0`, or an open issue in the `## Blocked by` section) or
   an assignee; first in map order wins.
 - **Claim**: `gh issue edit <n> --add-assignee @me`, the session's first write.
-- **Resolve**: `gh issue comment <n> --body "<answer>"`, then `gh issue close <n>`, then append a
-  context pointer (gist + link) to the map's Decisions-so-far.
+- **Resolve**: `gh issue comment <n> --body-file <path>` with the answer, then
+  `gh issue close <n>`, then append a context pointer (gist + link) to the map's Decisions-so-far.

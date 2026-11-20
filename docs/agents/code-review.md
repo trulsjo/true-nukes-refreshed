@@ -18,10 +18,9 @@ finding is reported with its grade, and Truls chooses which of them are fixed, a
 
 ## The review panel
 
-Reviews here are run by the review panel, through the `review-panel` skill, when Truls asks for
-one. Its parameters are in [`review-panel.md`](review-panel.md): the prefix `tn`, and for each
-agent its command, with the model, and its clear command. The panel's answers grade each finding
-`blocking`, `should-fix` or `nit`, the grade the threshold above reads.
+The review panel runs a review here, through the `review-panel` skill, and Truls starts each one.
+Its parameters are in [`review-panel.md`](review-panel.md): the prefix `tn`, and for each agent
+its command, with the model, and its clear command.
 
 ## The procedure's parameters
 
@@ -33,6 +32,15 @@ agent its command, with the model, and its clear command. The panel's answers gr
 | Where recorded | one combined review comment on the pull request, with each finding's outcome |
 | Merge workflow | `.github/workflows/check.yml` |
 
+Of the steps the procedure leaves to each repository, this one has three:
+
+- **Lanes:** none. Each of the panel's agents reads the whole change.
+- **The grade:** each agent grades its findings `blocking`, `should-fix` or `nit`, the grade the
+  threshold above reads.
+- **Who fixes the rest:** Truls chooses, as *The threshold* says.
+
 Not set here, and Truls's to set: the brief template, the reviewer's copy, further reading, the
-check run, raw output and test claims, and the steps the procedure leaves to each repository.
-Until he does, the `review-panel` skill's own brief and worktrees stand for the first two.
+check run, raw output and test claims, and the other three steps left to each repository,
+commit-message rewrites, cost records and after-merge steps. Until he does, the `review-panel`
+skill's own brief and worktrees stand for the brief template and the reviewer's copy, and its
+*After a rebase-merge* for the after-merge steps.
