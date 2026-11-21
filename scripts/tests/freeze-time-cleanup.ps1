@@ -81,8 +81,13 @@ function Check([bool] $Ok, [string] $What, [string] $Detail) {
 # assertion that can go red here; the Continued stand-ins below are.
 $modDirs = @('true-nukes-refreshed', 'warheads-refreshed', 'true-nukes-graphics-refreshed')
 function Get-ModState {
-    # -z, so a path comes unquoted; a rename or copy entry is followed by its old path.
-    $raw = (git -C $repo status --porcelain=v1 -z --ignored -- @modDirs) -join "`n"
+    # -z, so a path comes unquoted; a rename or copy entry is followed by its old path. git writes
+    # paths as UTF-8, which pwsh decodes by [Console]::OutputEncoding, IBM437 from Git Bash.
+    $encoding = [Console]::OutputEncoding
+    try {
+        [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
+        $raw = (git -C $repo status --porcelain=v1 -z --ignored -- @modDirs) -join "`n"
+    } finally { [Console]::OutputEncoding = $encoding }
     if ($LASTEXITCODE) { throw "git status failed in $repo (exit $LASTEXITCODE), so the mods' state cannot be read" }
     $files = @(git -C $repo ls-files -s -- @modDirs)
     if ($LASTEXITCODE) { throw "git ls-files failed in $repo (exit $LASTEXITCODE), so the mods' state cannot be read" }
