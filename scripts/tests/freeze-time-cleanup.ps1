@@ -96,7 +96,8 @@ function Get-ModState {
         $full = Join-Path $repo $entry.Substring(3).TrimEnd('/')
         $paths.Add($full)
         if ($entry.Substring(0, 2) -match 'D') { [void]$deleted.Add($full) }
-        if ($entry[0] -in 'R', 'C') { $i++; $entry += " <- $($fields[$i])" }
+        # Either column: a worktree rename, of an intent-to-add file, shows as ' R'.
+        if ($entry.Substring(0, 2) -match '[RC]') { $i++; $entry += " <- $($fields[$i])" }
         $status.Add($entry)
     }
     # Each listed file's hash, and every file inside a listed directory's. A file git marks deleted
