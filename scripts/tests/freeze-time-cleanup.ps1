@@ -100,8 +100,9 @@ function Get-ModState {
         $entry = $fields[$i]
         $full = Join-Path $repo $entry.Substring(3).TrimEnd('/')
         $paths.Add($full)
-        # D, or U: an unmerged entry stays UU after its worktree file is removed.
-        if ($entry.Substring(0, 2) -match '[DU]') { [void]$absent.Add($full) }
+        # D, or unmerged: an unmerged entry keeps its code after its worktree file is removed, and
+        # AA, both added, is the one unmerged code with neither D nor U.
+        if ($entry.Substring(0, 2) -match '[DU]|AA') { [void]$absent.Add($full) }
         # Either column: a worktree rename, of an intent-to-add file, shows as ' R'.
         if ($entry.Substring(0, 2) -match '[RC]') { $i++; $entry += " <- $($fields[$i])" }
         $status.Add($entry)
