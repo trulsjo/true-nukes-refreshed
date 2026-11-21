@@ -31,7 +31,7 @@
       buildother  stopped before that junction exists (the stand-in holds it back): the harness is
                   left and a warning names it; the timer copy is removed. Before it pauses, the
                   stand-in also makes a decoy harness whose tn-freeze-timer junction points at
-                  another copy, as another run's would: it is left as is, and a warning names it.
+                  another copy, like another run's: it is left as it was, and a warning names it.
 
     Stand-ins and stops run the script in a [powershell] instance, whose Stop() is the pipeline
     stop Ctrl+C causes. A stand-in that pauses writes a marker file first, and the test stops the
@@ -310,8 +310,8 @@ finally {
     else { Remove-Item $scratch -Recurse -Force -ErrorAction SilentlyContinue }
 }
 
-# The guard comes before the mod-folder check, which runs whatever -Only selects, so that it
-# counts only the assertions of the cases that ran.
+# The no-assertion guard comes before the mod-folder check, which runs whatever -Only selects,
+# so that it counts only the assertions of the cases that ran.
 if (-not $checked) { Write-Host 'CHECK FAILED: no assertion ran'; exit 1 }
 Check (((Get-ModState) -join "`n") -eq $modsBefore) "the repository's mod folders are unchanged"
 if ($failed) { Write-Host "CHECK FAILED: $failed of $checked"; exit 1 }
