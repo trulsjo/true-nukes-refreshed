@@ -310,8 +310,8 @@ finally {
     else { Remove-Item $scratch -Recurse -Force -ErrorAction SilentlyContinue }
 }
 
-# The no-assertion guard comes before the mod-folder check, which runs whatever -Only selects,
-# so that it counts only the assertions of the cases that ran.
+# The no-assertion guard runs before the mod-folder check, so only the cases' assertions count
+# towards it.
 if (-not $checked) { Write-Host 'CHECK FAILED: no assertion ran'; exit 1 }
 Check (((Get-ModState) -join "`n") -eq $modsBefore) "the repository's mod folders are unchanged"
 if ($failed) { Write-Host "CHECK FAILED: $failed of $checked"; exit 1 }
