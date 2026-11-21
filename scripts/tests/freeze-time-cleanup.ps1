@@ -33,9 +33,9 @@
                   stand-in also makes a decoy harness whose tn-freeze-timer junction points at
                   another copy, like another run's: it is left as it was, and a warning names it.
 
-    Stand-ins and stops run the script in a [powershell] instance, whose Stop() is the pipeline
-    stop Ctrl+C causes. A stand-in that pauses writes a marker file first, and the test stops the
-    run only once it sees it. A case that never reaches its pause fails. Any leftover is removed by
+    Stand-ins and stops run the script in a [powershell] instance, whose Stop() is the pipeline stop
+    Ctrl+C causes. A stand-in that pauses writes a marker file first, and the test stops the run
+    only once it sees it. A case that never reaches its pause fails. Any leftover is removed by
     unlinking each junction before deleting the directory. The repository's mod folders are checked
     unchanged at the end, through git, which must read the repository: git status, the count of the
     index entries and the content of each file git status lists, walking a listed directory without
