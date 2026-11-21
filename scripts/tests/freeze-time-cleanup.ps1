@@ -94,19 +94,20 @@ function Get-ModState {
     if (-not $files.Count) { throw "git ls-files lists no file under $($modDirs -join ', ') in $repo" }
     $status = [Collections.Generic.List[string]]::new()
     $paths = [Collections.Generic.List[string]]::new()
-    $deleted = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $absent = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     $fields = @($raw -split "`0" | Where-Object { $_ })
     for ($i = 0; $i -lt $fields.Count; $i++) {
         $entry = $fields[$i]
         $full = Join-Path $repo $entry.Substring(3).TrimEnd('/')
         $paths.Add($full)
-        if ($entry.Substring(0, 2) -match 'D') { [void]$deleted.Add($full) }
+        # D, or U: an unmerged entry stays UU after its worktree file is removed.
+        if ($entry.Substring(0, 2) -match '[DU]') { [void]$absent.Add($full) }
         # Either column: a worktree rename, of an intent-to-add file, shows as ' R'.
         if ($entry.Substring(0, 2) -match '[RC]') { $i++; $entry += " <- $($fields[$i])" }
         $status.Add($entry)
     }
     # Each listed file's hash, and every file inside a listed directory's. A file git marks deleted
-    # has no content, and its status line is enough; any other path that cannot be found throws, so
+    # or unmerged may be absent, and its status line is enough; any other path not found throws, so
     # a path read wrong is never left unchecked. A link is recorded by its target and never
     # followed, since a leftover junction can point outside the repository (#61). git lists paths
     # beneath a junction that replaced a tracked directory, so a listed path with a link between it
@@ -134,7 +135,7 @@ function Get-ModState {
         $item = Get-Item -LiteralPath $full -Force -ErrorAction SilentlyContinue
         $rel = Get-RepoPath $full
         if (-not $item) {
-            if ($deleted.Contains($full)) { continue }
+            if ($absent.Contains($full)) { continue }
             throw "git status lists $rel, which cannot be found, so the mods' state cannot be read"
         }
         if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { [void]$content.Add("$rel -> $($item.LinkTarget)") }
