@@ -108,23 +108,40 @@ function Get-ModState {
     # Each listed file's hash, and every file inside a listed directory's. A file git marks deleted
     # has no content, and its status line is enough; any other path that cannot be found throws, so
     # a path read wrong is never left unchecked. A link is recorded by its target and never
-    # followed, since a leftover junction can point outside the repository (#61).
-    $content = [Collections.Generic.List[string]]::new()
+    # followed, since a leftover junction can point outside the repository (#61). git lists paths
+    # beneath a junction that replaced a tracked directory, so a listed path with a link between it
+    # and $repo is recorded as that link, and nothing past it is read.
+    function Get-RepoPath([string] $Full) { [IO.Path]::GetRelativePath($repo, $Full) -replace '\\', '/' }
+    function Find-LinkAbove([string] $Full) {
+        $dir = $repo
+        $parts = @((Get-RepoPath $Full) -split '/')
+        for ($k = 0; $k -lt $parts.Count - 1; $k++) {
+            $dir = Join-Path $dir $parts[$k]
+            $up = Get-Item -LiteralPath $dir -Force -ErrorAction SilentlyContinue
+            if ($up -and ($up.Attributes -band [IO.FileAttributes]::ReparsePoint)) { return $up }
+        }
+    }
+    # A set, as several listed paths can share the link above them.
+    $content = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
     $queue = [Collections.Generic.Queue[string]]::new()
-    foreach ($p in $paths) { $queue.Enqueue($p) }
+    foreach ($p in $paths) {
+        $above = Find-LinkAbove $p
+        if ($above) { [void]$content.Add("$(Get-RepoPath $above.FullName) -> $($above.LinkTarget)") }
+        else { $queue.Enqueue($p) }
+    }
     while ($queue.Count) {
         $full = $queue.Dequeue()
         $item = Get-Item -LiteralPath $full -Force -ErrorAction SilentlyContinue
-        $rel = [IO.Path]::GetRelativePath($repo, $full) -replace '\\', '/'
+        $rel = Get-RepoPath $full
         if (-not $item) {
             if ($deleted.Contains($full)) { continue }
             throw "git status lists $rel, which cannot be found, so the mods' state cannot be read"
         }
-        if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { $content.Add("$rel -> $($item.LinkTarget)") }
+        if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { [void]$content.Add("$rel -> $($item.LinkTarget)") }
         elseif ($item.PSIsContainer) { Get-ChildItem -LiteralPath $full -Force | ForEach-Object { $queue.Enqueue($_.FullName) } }
-        else { $content.Add("$rel $((Get-FileHash -LiteralPath $full -Algorithm SHA256).Hash)") }
+        else { [void]$content.Add("$rel $((Get-FileHash -LiteralPath $full -Algorithm SHA256).Hash)") }
     }
-    $sorted = $content.ToArray()
+    $sorted = [Linq.Enumerable]::ToArray($content)
     [Array]::Sort($sorted, [StringComparer]::Ordinal)
     @($status) + "$($files.Count) tracked files" + $sorted
 }
