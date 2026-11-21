@@ -113,13 +113,16 @@ function Get-ModState {
     # beneath a junction that replaced a tracked directory, so a listed path with a link between it
     # and $repo is recorded as that link, and nothing past it is read.
     function Get-RepoPath([string] $Full) { [IO.Path]::GetRelativePath($repo, $Full) -replace '\\', '/' }
+    # A link is a junction or a symlink. Another reparse point, such as a cloud placeholder, is read
+    # as a file or a directory; a hard link is a file.
+    function Test-Link($Item) { $Item.LinkType -in 'Junction', 'SymbolicLink' }
     function Find-LinkAbove([string] $Full) {
         $dir = $repo
         $parts = @((Get-RepoPath $Full) -split '/')
         for ($k = 0; $k -lt $parts.Count - 1; $k++) {
             $dir = Join-Path $dir $parts[$k]
             $up = Get-Item -LiteralPath $dir -Force -ErrorAction SilentlyContinue
-            if ($up -and ($up.Attributes -band [IO.FileAttributes]::ReparsePoint)) { return $up }
+            if ($up -and (Test-Link $up)) { return $up }
         }
     }
     # A set, as several listed paths can share the link above them.
@@ -138,7 +141,7 @@ function Get-ModState {
             if ($absent.Contains($full)) { continue }
             throw "git status lists $rel, which cannot be found, so the mods' state cannot be read"
         }
-        if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { [void]$content.Add("$rel -> $($item.LinkTarget)") }
+        if (Test-Link $item) { [void]$content.Add("$rel -> $($item.LinkTarget)") }
         elseif ($item.PSIsContainer) { Get-ChildItem -LiteralPath $full -Force | ForEach-Object { $queue.Enqueue($_.FullName) } }
         else { [void]$content.Add("$rel $((Get-FileHash -LiteralPath $full -Algorithm SHA256).Hash)") }
     }
