@@ -37,8 +37,10 @@
     stop Ctrl+C causes. A stand-in that pauses writes a marker file first, and the test stops the
     run only once it sees it. A case that never reaches its pause fails. Any leftover is removed by
     unlinking each junction before deleting the directory. The repository's mod folders are checked
-    unchanged at the end, through git, which must read the repository; no case junctions them, so
-    that assertion is a guard, and the sentinels are what can go red.
+    unchanged at the end, through git, which must read the repository: git status, the count of the
+    index entries and the content of each file git status lists, walking a listed directory without
+    following links. No case junctions them, so that assertion is a guard, and the sentinels are
+    what can go red.
 
     Needs FACTORIO_EXE set to the pinned 2.1.24 install: New-LoadHarness reads its data folder.
     Takes under a minute.
@@ -73,16 +75,45 @@ function Check([bool] $Ok, [string] $What, [string] $Detail) {
     else { Write-Host "FAILED: $What$(if ($Detail) { " ($Detail)" })"; $script:failed++ }
 }
 
-# The repository's mods, which the script's 2.1 sessions junction. No case reaches a 2.1 session,
-# so this is a guard, not an assertion that can go red here; the Continued stand-ins below are.
+# The repository's mods, which the script's 2.1 sessions junction. Their state is git status, the
+# count of the index entries, and the content of each file git status lists, so a second edit to a
+# file already modified changes it too. No case reaches a 2.1 session, so this is a guard, not an
+# assertion that can go red here; the Continued stand-ins below are.
 $modDirs = @('true-nukes-refreshed', 'warheads-refreshed', 'true-nukes-graphics-refreshed')
 function Get-ModState {
-    $status = git -C $repo status --porcelain --ignored -- @modDirs
+    # -z, so a path comes unquoted; a rename or copy entry is followed by its old path.
+    $raw = (git -C $repo status --porcelain=v1 -z --ignored -- @modDirs) -join "`n"
     if ($LASTEXITCODE) { throw "git status failed in $repo (exit $LASTEXITCODE), so the mods' state cannot be read" }
     $files = @(git -C $repo ls-files -s -- @modDirs)
     if ($LASTEXITCODE) { throw "git ls-files failed in $repo (exit $LASTEXITCODE), so the mods' state cannot be read" }
     if (-not $files.Count) { throw "git ls-files lists no file under $($modDirs -join ', ') in $repo" }
-    @($status) + "$($files.Count) tracked files"
+    $status = [Collections.Generic.List[string]]::new()
+    $paths = [Collections.Generic.List[string]]::new()
+    $fields = @($raw -split "`0" | Where-Object { $_ })
+    for ($i = 0; $i -lt $fields.Count; $i++) {
+        $entry = $fields[$i]
+        $paths.Add($entry.Substring(3))
+        if ($entry[0] -in 'R', 'C') { $i++; $entry += " <- $($fields[$i])" }
+        $status.Add($entry)
+    }
+    # Each listed file's hash, and every file inside a listed directory's. A deleted file has no
+    # content, and its status line is enough. A link is recorded by its target and never followed,
+    # since a leftover junction can point outside the repository (#61).
+    $content = [Collections.Generic.List[string]]::new()
+    $queue = [Collections.Generic.Queue[string]]::new()
+    foreach ($p in $paths) { $queue.Enqueue((Join-Path $repo $p.TrimEnd('/'))) }
+    while ($queue.Count) {
+        $full = $queue.Dequeue()
+        $item = Get-Item -LiteralPath $full -Force -ErrorAction SilentlyContinue
+        if (-not $item) { continue }
+        $rel = [IO.Path]::GetRelativePath($repo, $full) -replace '\\', '/'
+        if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { $content.Add("$rel -> $($item.LinkTarget)") }
+        elseif ($item.PSIsContainer) { Get-ChildItem -LiteralPath $full -Force | ForEach-Object { $queue.Enqueue($_.FullName) } }
+        else { $content.Add("$rel $((Get-FileHash -LiteralPath $full -Algorithm SHA256).Hash)") }
+    }
+    $sorted = $content.ToArray()
+    [Array]::Sort($sorted, [StringComparer]::Ordinal)
+    @($status) + "$($files.Count) tracked files" + $sorted
 }
 $modsBefore = (Get-ModState) -join "`n"
 
