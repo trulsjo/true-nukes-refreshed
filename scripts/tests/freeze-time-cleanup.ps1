@@ -89,24 +89,31 @@ function Get-ModState {
     if (-not $files.Count) { throw "git ls-files lists no file under $($modDirs -join ', ') in $repo" }
     $status = [Collections.Generic.List[string]]::new()
     $paths = [Collections.Generic.List[string]]::new()
+    $deleted = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     $fields = @($raw -split "`0" | Where-Object { $_ })
     for ($i = 0; $i -lt $fields.Count; $i++) {
         $entry = $fields[$i]
-        $paths.Add($entry.Substring(3))
+        $full = Join-Path $repo $entry.Substring(3).TrimEnd('/')
+        $paths.Add($full)
+        if ($entry.Substring(0, 2) -match 'D') { [void]$deleted.Add($full) }
         if ($entry[0] -in 'R', 'C') { $i++; $entry += " <- $($fields[$i])" }
         $status.Add($entry)
     }
-    # Each listed file's hash, and every file inside a listed directory's. A deleted file has no
-    # content, and its status line is enough. A link is recorded by its target and never followed,
-    # since a leftover junction can point outside the repository (#61).
+    # Each listed file's hash, and every file inside a listed directory's. A file git marks deleted
+    # has no content, and its status line is enough; any other path that cannot be found throws, so
+    # a path read wrong is never left unchecked. A link is recorded by its target and never
+    # followed, since a leftover junction can point outside the repository (#61).
     $content = [Collections.Generic.List[string]]::new()
     $queue = [Collections.Generic.Queue[string]]::new()
-    foreach ($p in $paths) { $queue.Enqueue((Join-Path $repo $p.TrimEnd('/'))) }
+    foreach ($p in $paths) { $queue.Enqueue($p) }
     while ($queue.Count) {
         $full = $queue.Dequeue()
         $item = Get-Item -LiteralPath $full -Force -ErrorAction SilentlyContinue
-        if (-not $item) { continue }
         $rel = [IO.Path]::GetRelativePath($repo, $full) -replace '\\', '/'
+        if (-not $item) {
+            if ($deleted.Contains($full)) { continue }
+            throw "git status lists $rel, which cannot be found, so the mods' state cannot be read"
+        }
         if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { $content.Add("$rel -> $($item.LinkTarget)") }
         elseif ($item.PSIsContainer) { Get-ChildItem -LiteralPath $full -Force | ForEach-Object { $queue.Enqueue($_.FullName) } }
         else { $content.Add("$rel $((Get-FileHash -LiteralPath $full -Algorithm SHA256).Hash)") }
