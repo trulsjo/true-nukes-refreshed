@@ -31,7 +31,7 @@
       buildother  stopped before that junction exists (the stand-in holds it back): the harness is
                   left and a warning names it; the timer copy is removed. Before it pauses, the
                   stand-in also makes a decoy harness whose tn-freeze-timer junction points at
-                  another copy, as another run's would: it is left as it was, and a warning names it.
+                  another copy, as another run's would: it is left as is, and a warning names it.
 
     Stand-ins and stops run the script in a [powershell] instance, whose Stop() is the pipeline
     stop Ctrl+C causes. A stand-in that pauses writes a marker file first, and the test stops the
@@ -49,6 +49,7 @@
 .EXAMPLE
     pwsh -NoProfile -File scripts/tests/freeze-time-cleanup.ps1 -Only setup,throws
 #>
+
 #Requires -Version 7.2
 param([string[]] $Only = @('setup,throws,warnstop,copyfails,buildown,buildother'))
 Set-StrictMode -Version Latest
