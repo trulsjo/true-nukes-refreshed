@@ -15,6 +15,15 @@ its input broken for one run. A failure elsewhere in the test is not that run. P
 folders unchanged" assertion and PR #84's claim to cover `-Disabled`, which no assertion read, went
 up for review without one.
 
+**The code before the change runs as an untracked copy beside the script**, in the same folder, so
+`$PSScriptRoot` and each path the script works out from it name this checkout. Write the copy byte
+for byte with `git show <commit>:<path> > <copy>`, from Git Bash or `pwsh`. Piped to `Set-Content`
+instead, `pwsh` decodes git's output first, as IBM437 when it was started from Git Bash, and writes
+CRLF. Delete the copy right after the run, before another check or a commit: `script-help.ps1`,
+`strict-lists.ps1` and `pre-commit`'s comment-line check each read every `.ps1` under `scripts/`.
+The fixes after PR #95's first two commits each ran their "before" as such an untracked copy,
+`scripts/tests/zz-old-freeze-time-cleanup.ps1`.
+
 `.github/workflows/check.yml` runs what needs no game on every pull request and push to `main`:
 the commit check, the mode of each `.githooks/` file, the shared `line-cite-check.ps1` and
 `cited-commit-check.ps1`, the self-test of each session hook `.claude/settings.json` wires from
