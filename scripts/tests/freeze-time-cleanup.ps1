@@ -139,7 +139,7 @@ function Get-ModState {
         $rel = Get-RepoPath $full
         if (-not $item) {
             if ($absent.Contains($full)) { continue }
-            throw "git status lists $rel, which cannot be found, so the mods' state cannot be read"
+            throw "$rel, which git status lists or is inside a directory it lists, cannot be found, so the mods' state cannot be read"
         }
         if (Test-Link $item) { [void]$content.Add("$rel -> $($item.LinkTarget)") }
         elseif ($item.PSIsContainer) { Get-ChildItem -LiteralPath $full -Force | ForEach-Object { $queue.Enqueue($_.FullName) } }
