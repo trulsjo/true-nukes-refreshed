@@ -19,8 +19,10 @@ finding is reported with its grade, and Truls chooses which of them are fixed, a
 ## The review panel
 
 The review panel runs a review here, through the `review-panel` skill, and Truls starts each one.
-Its parameters are in [`review-panel.md`](review-panel.md): the prefix `tn`, and for each agent
-its command, with the model, and its clear command.
+Its parameters are in [`review-panel.md`](review-panel.md): the prefix `tn`, for each agent its
+command, with the model, and its clear command, and the line limit `switch_ids.py` holds the lines
+it changes to after a rebase-merge, 100. That limit is the switch's alone: it is borrowed from
+`.githooks/pre-commit`, and no check holds a pull request body or comment to it.
 
 ## The procedure's parameters
 
