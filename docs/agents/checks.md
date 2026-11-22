@@ -30,15 +30,16 @@ or with `Get-ModState`'s source loaded from them on a throwaway repository.
 
 **A scratch run quoted as evidence gives its script, its command and how to get every input.** A
 scratch run is one that runs code, new or edited for the run, as no commit holds it, or reads an
-input as no commit holds it: a script, an inline command, or a committed test on code broken for one
-run. A new script is given as its text, and an edit as the file and the change. The inputs are the
-checkout and each file or piece of code the run reads from outside it. The checkout is given as a
-commit on `main`; as the pull request, with the commit's role or quoted subject once it is not the
-head; or, for a repository built for the run, as the steps that build it. A file or piece of code in
-another repository is given as the repository, the commit and the path, and any other as its text,
-the command that fetches it, with the date of the fetch, or the steps that rebuild it. Where one
-needs access, as a private repository does, or a local path changed, the evidence says so. A
-program's version, the game's build or a setting is given where the result depends on it.
+input as no commit holds it: a script, an inline command, a committed test on code broken for one
+run, or a committed script on such an input. A new script is given as its text, an edit as the file
+and the change, and a committed script as its path. The inputs are the checkout and each file or
+piece of code the run reads from outside it. The checkout is given as a commit on `main`; as the
+pull request, with the commit's role or quoted subject once it is not the head; or, for a repository
+built for the run, as the steps that build it. A file or piece of code in another repository is
+given as the repository, the commit and the path, and any other as its text, the command that
+fetches it, with the date of the fetch, or the steps that rebuild it. Where one needs access, as a
+private repository does, or a local path changed, the evidence says so. A program's version, the
+game's build or a setting is given where the result depends on it.
 
 `.github/workflows/check.yml` runs what needs no game on every pull request and push to `main`:
 the commit check, the mode of each `.githooks/` file, the shared `line-cite-check.ps1` and
