@@ -31,15 +31,24 @@ or with `Get-ModState`'s source loaded from them on a throwaway repository.
 **A scratch run quoted as evidence gives its script, its command and how to get every input.** A
 scratch run is one that runs code, new or edited for the run, as no commit holds it, or reads an
 input as no commit holds it: a script, an inline command, a committed test on code broken for one
-run, or a committed script on such an input. A new script is given as its text, an edit as the file
-and the change, and an unchanged committed script as its path. The inputs are the checkout and each
-file or piece of code the run reads from outside it. The checkout is given as a commit on `main`; as
-the pull request, with the commit's role or quoted subject once it is not the head; or, for a
-repository built for the run, as the steps that build it. A file or piece of code in another
-repository is given as the repository, the commit and the path, and any other as its text, the
-command that fetches it, with the date of the fetch, or the steps that rebuild it. Where one needs
-access, as a private repository does, or a local path changed, the evidence says so. A program's
-version, the game's build or a setting is given where the result depends on it.
+run, or a committed script on such an input. The inputs are the checkout and each file or piece of
+code the run reads from outside it. How each is given, where more than one case can hold for a run:
+
+- **The code:**
+  - a new script, or an inline command: its text;
+  - an edit: the file and the change;
+  - an unchanged committed script: its path.
+- **The checkout:**
+  - a commit on `main`: the commit;
+  - the pull request's: the pull request, with the commit's role or quoted subject once it is not
+    the head;
+  - a repository built for the run: the steps that build it.
+- **Each file or piece of code from outside the checkout**, and where one needs access, as a private
+  repository does, or a local path changed, the evidence says so:
+  - in another repository: the repository, the commit and the path;
+  - any other: its text, the command that fetches it, with the date of the fetch, or the steps that
+    rebuild it.
+- **A program's version, the game's build or a setting:** given where the result depends on it.
 
 `.github/workflows/check.yml` runs what needs no game on every pull request and push to `main`:
 the commit check, the mode of each `.githooks/` file, the shared `line-cite-check.ps1` and
