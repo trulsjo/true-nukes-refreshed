@@ -15,14 +15,18 @@ its input broken for one run. A failure elsewhere in the test is not that run. P
 folders unchanged" assertion and PR #84's claim to cover `-Disabled`, which no assertion read, went
 up for review without one.
 
-**The code before the change runs as an untracked copy beside the script**, in the same folder, so
-`$PSScriptRoot` and each path the script works out from it name this checkout. Write the copy byte
-for byte with `git show <commit>:<path> > <copy>`, from Git Bash or `pwsh`. Piped to `Set-Content`
-instead, `pwsh` decodes git's output first, as IBM437 when it was started from Git Bash, and writes
-CRLF. Delete the copy right after the run, before another check or a commit: `script-help.ps1`,
-`strict-lists.ps1` and `pre-commit`'s comment-line check each read every `.ps1` under `scripts/`.
-The fixes after PR #95's first two commits each ran their "before" as such an untracked copy,
-`scripts/tests/zz-old-freeze-time-cleanup.ps1`.
+**The code before the change runs as an untracked copy beside the file it changes**, in the same
+folder, so `$PSScriptRoot` and each path the copy works out from it name this checkout. That gives
+the "before" when the changed file is the one the run starts. A file reached by name runs from the
+working tree, as changed, unless its caller is pointed at the copy for that run:
+`scripts/freeze-time.ps1` from its test, or a test from `load-check.ps1`. Write the copy as the
+commit stores it, byte for byte, with `git show <commit>:<path> > <copy>`, from Git Bash or from
+`pwsh` 7.6.10, as measured. `Set-Content` writes CRLF on Windows, and piped to it `pwsh` decodes
+git's output first as `[Console]::OutputEncoding` says, which was IBM437 in the `pwsh` measured,
+started from Git Bash. Delete the copy right after the run, before another check: `script-help.ps1`
+and `strict-lists.ps1` read every `.ps1` under `scripts/`, the copy too, and `pre-commit`'s
+comment-line check reads it once it is staged. PR #95's "before" runs were such copies, run whole
+or with `Get-ModState`'s source loaded from them on a throwaway repository.
 
 `.github/workflows/check.yml` runs what needs no game on every pull request and push to `main`:
 the commit check, the mode of each `.githooks/` file, the shared `line-cite-check.ps1` and
