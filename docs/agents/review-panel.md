@@ -1,5 +1,6 @@
 ---
 prefix: tn
+max-line-length: 100
 ---
 
 # Review panel
