@@ -28,6 +28,18 @@ and `strict-lists.ps1` read every `.ps1` under `scripts/`, the copy too, and `pr
 comment-line check reads it once it is staged. PR #95's "before" runs were such copies, run whole
 or with `Get-ModState`'s source loaded from them on a throwaway repository.
 
+**A scratch run quoted as evidence gives its script, its command and how to get every input.** A
+scratch run is one that runs code, or reads an input, as no commit holds it, new or edited for the
+run: a script, an inline command, or a committed test on code broken for one run. A new script is
+given as its text, and an edit as the file and the change. The inputs are the checkout, given as a
+commit on `main` or as the pull request's branch, and each file or piece of code the run reads from
+outside it: one in another repository is given as the repository, the commit and the path, and any
+other as its text, the command that fetches it or the steps that rebuild it. PR #97's body first
+gave its two outputs and described the script, then gave the script and the command but no way to
+get `combined-96.md`, a file the command names. As merged it also gives a script that rebuilds a
+stand-in for that file, but names the first run's checkout only as `main`, where the command has
+printed the second run's result since the merge.
+
 `.github/workflows/check.yml` runs what needs no game on every pull request and push to `main`:
 the commit check, the mode of each `.githooks/` file, the shared `line-cite-check.ps1` and
 `cited-commit-check.ps1`, the self-test of each session hook `.claude/settings.json` wires from
