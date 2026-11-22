@@ -29,14 +29,14 @@ comment-line check reads it once it is staged. PR #95's "before" runs were such 
 or with `Get-ModState`'s source loaded from them on a throwaway repository.
 
 **A scratch run quoted as evidence gives its script, its command and how to get every input.** A
-scratch run is one that runs code, or reads an input, as no commit holds it, new or edited for the
-run: a script, an inline command, or a committed test on code broken for one run. A new script is
-given as its text, and an edit as the file and the change. The inputs are the checkout and each file
-or piece of code the run reads from outside it. The checkout is given as a commit on `main`; as the
-pull request, with the commit's role or quoted subject once it is not the head; or, for a repository
-built for the run, as the steps that build it. A file or piece of code in another repository is
-given as the repository, the commit and the path, and any other as its text, the command that
-fetches it, with the date of the fetch, or the steps that rebuild it.
+scratch run is one that runs code, new or edited for the run, as no commit holds it, or reads an
+input as no commit holds it: a script, an inline command, or a committed test on code broken for one
+run. A new script is given as its text, and an edit as the file and the change. The inputs are the
+checkout and each file or piece of code the run reads from outside it. The checkout is given as a
+commit on `main`; as the pull request, with the commit's role or quoted subject once it is not the
+head; or, for a repository built for the run, as the steps that build it. A file or piece of code in
+another repository is given as the repository, the commit and the path, and any other as its text,
+the command that fetches it, with the date of the fetch, or the steps that rebuild it.
 
 `.github/workflows/check.yml` runs what needs no game on every pull request and push to `main`:
 the commit check, the mode of each `.githooks/` file, the shared `line-cite-check.ps1` and

@@ -32,9 +32,9 @@ parts (#74).
   `grado-factorio-modpack`, `grado-factorio-tools` or `realistic-fusion-refreshed`.
 - **Pull request body**: the shared page's four rules, with no switch turned on here, and above
   the template's headings one `Closes #<n>` line for each ticket the branch resolves. Where its
-  evidence quotes a scratch run (code, or an input, as no commit holds it), the paragraph of
-  [`checks.md`](checks.md) that begins "A scratch run quoted as evidence" says what the body gives,
-  whether or not the change touches a check. The shared
+  evidence quotes a scratch run, the paragraph of [`checks.md`](checks.md) that begins
+  "A scratch run quoted as evidence" says what the body gives, whether or not the change
+  touches a check. The shared
   `refuse-pr-body.ps1`, a hook in `.claude/settings.json` (#71), refuses a `gh pr create` or
   `gh pr edit` with an inline body, a create with no body file, and one whose body file fails
   `pr-body-check.ps1`; and a `gh pr comment`, `gh issue create` or `gh issue comment` whose body
