@@ -36,7 +36,8 @@ checkout and each file or piece of code the run reads from outside it. The check
 commit on `main`; as the pull request, with the commit's role or quoted subject once it is not the
 head; or, for a repository built for the run, as the steps that build it. A file or piece of code in
 another repository is given as the repository, the commit and the path, and any other as its text,
-the command that fetches it, with the date of the fetch, or the steps that rebuild it.
+the command that fetches it, with the date of the fetch, or the steps that rebuild it. A program's
+version, the game's build or a setting is given where the result depends on it.
 
 `.github/workflows/check.yml` runs what needs no game on every pull request and push to `main`:
 the commit check, the mode of each `.githooks/` file, the shared `line-cite-check.ps1` and
