@@ -32,7 +32,8 @@ or with `Get-ModState`'s source loaded from them on a throwaway repository.
 scratch run is one that runs code, new or edited for the run, as no commit holds it, or reads an
 input as no commit holds it: a script, an inline command, a committed test on code broken for one
 run, or a committed script on such an input. The inputs are the checkout and each file or piece of
-code the run reads from outside it. How each is given, where more than one case can hold for a run:
+code the run reads from outside it. How the code, each input and what else the result depends on are
+given, where more than one case can hold for a run:
 
 - **The code:**
   - a new script, or an inline command: its text;
