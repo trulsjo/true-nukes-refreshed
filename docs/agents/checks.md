@@ -38,7 +38,9 @@ given:
 - **The code**, each case that holds for the run:
   - a new script, or an inline command: its text;
   - an edit: the file and the change;
-  - an unchanged committed script: its path.
+  - an unchanged committed script: its path;
+  - a committed test run on code broken for one run: both of the last two, its path, and the broken
+    file and the change.
 - **The checkout:**
   - a commit on `main`: the commit;
   - the pull request's: the pull request, with the commit's role or quoted subject once it is not
