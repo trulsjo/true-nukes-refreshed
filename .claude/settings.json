@@ -1,6 +1,7 @@
 {
   "env": {
-    "FACTORIO_EXE": "D:\\factorio-2.1\\bin\\x64\\factorio.exe"
+    "FACTORIO_EXE": "D:\\factorio-2.1\\bin\\x64\\factorio.exe",
+    "PYTHONUTF8": "1"
   },
   "permissions": {
     "allow": [
