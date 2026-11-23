@@ -43,8 +43,8 @@ given:
     file and the change.
 - **The checkout:**
   - a commit on `main`: the commit;
-  - the pull request's: the pull request, with the commit's role or quoted subject once it is not
-    the head;
+  - a commit of the pull request: the pull request, with the commit's role or quoted subject once it
+    is not the head;
   - a repository built for the run: the steps that build it.
 - **Each file or piece of code from outside the checkout:**
   - in another repository: the repository, the commit and the path;
