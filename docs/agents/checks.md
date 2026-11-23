@@ -33,9 +33,9 @@ scratch run is one that runs code, new or edited for the run, as no commit holds
 input as no commit holds it: a script, an inline command, a committed test on code broken for one
 run, or a committed script on such an input. The inputs are the checkout and each file or piece of
 code the run reads from outside it. How the code, each input and what else the result depends on are
-given, where more than one case can hold for a run:
+given:
 
-- **The code:**
+- **The code**, each case that holds for the run:
   - a new script, or an inline command: its text;
   - an edit: the file and the change;
   - an unchanged committed script: its path.
