@@ -35,7 +35,7 @@ run, or a committed script on such an input. The inputs are the checkout and eac
 code the run reads from outside it. How the code, each input and what else the result depends on are
 given:
 
-- **The code**, each case that holds for the run:
+- **The code, and any file edited for the run**, each case that holds for the run:
   - a new script, or an inline command: its text;
   - an edit: the file and the change;
   - an unchanged committed script: its path;
