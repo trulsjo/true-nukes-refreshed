@@ -46,11 +46,12 @@ given:
   - the pull request's: the pull request, with the commit's role or quoted subject once it is not
     the head;
   - a repository built for the run: the steps that build it.
-- **Each file or piece of code from outside the checkout**, and where one needs access, as a private
-  repository does, or a local path changed, the evidence says so:
+- **Each file or piece of code from outside the checkout:**
   - in another repository: the repository, the commit and the path;
   - any other: its text, the command that fetches it, with the date of the fetch, or the steps that
-    rebuild it.
+    rebuild it;
+  - one that needs access, as a private repository does, or a local path changed: the evidence says
+    so too.
 - **A program's version, the game's build or a setting:** given where the result depends on it.
 
 `.github/workflows/check.yml` runs what needs no game on every pull request and push to `main`:
